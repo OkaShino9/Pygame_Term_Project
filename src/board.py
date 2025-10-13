@@ -7,7 +7,7 @@ from config import (
     COL_SNAKE, COL_LADDER
 )
 
-# king is g
+# king
 
 class Board:
     """กระดาน + mapping ช่อง + วาดงูเป็นตัว (รูปภาพ) และบันไดเป็นเส้น"""
