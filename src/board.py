@@ -7,6 +7,8 @@ from config import (
     COL_SNAKE, COL_LADDER
 )
 
+# king is g
+
 class Board:
     """กระดาน + mapping ช่อง + วาดงูเป็นตัว (รูปภาพ) และบันไดเป็นเส้น"""
     def __init__(self, snakes_ladders: Optional[Dict[int, int]] = None):
