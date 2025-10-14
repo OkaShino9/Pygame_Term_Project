@@ -22,7 +22,7 @@ def _parse_mapping(d: Dict[str, Any]) -> dict[int, int]:
 
 def load_board_file(p: Path) -> Optional[BoardSpec]:
     try:
-        data = json.loads(p.read_text(encoding="utf-8"))
+        data = json.loads(p.read_text(encoding="utf-8-sig"))
         name = data.get("name", p.stem)
         grid = int(data.get("grid", C.GRID_DEFAULT))
         ladders = _parse_mapping(data.get("ladders", {}))

@@ -8,7 +8,7 @@ _DEFAULTS = {
     "assets": {
         "board_img": "assets/board_560.png",
         "dice_dir": "assets/dice",
-        "font_path": "assets/TCS-4KanomPing-PersonalOnly.ttf"
+        "font_path": "assets/378PANIB.ttf"
     },
     "colors": {
         "bg_top": [248,249,255],
@@ -26,7 +26,7 @@ _DEFAULTS = {
     },
     "fonts": {"xs":16, "sm":18, "md":22, "lg":28, "xl":36, "xxl":44},
     "rules": { "exact_win": False },
-    "boards": { "dir": "assets/boards", "shuffle_each_game": true }
+    "boards": { "dir": "assets/boards", "shuffle_each_game": True }
 }
 
 def _deep_merge(base, override):
@@ -42,7 +42,7 @@ def load_settings(project_root: Path) -> dict:
     data = {}
     if cfg_path.exists():
         try:
-            data = json.loads(cfg_path.read_text(encoding="utf-8"))
+            data = json.loads(cfg_path.read_text(encoding="utf-8-sig"))
         except Exception as e:
             print("[WARN] อ่าน settings.json ไม่ได้ ใช้ค่า default แทน:", e)
     return _deep_merge(_DEFAULTS.copy(), data)

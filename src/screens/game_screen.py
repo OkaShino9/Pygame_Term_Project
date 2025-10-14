@@ -31,11 +31,12 @@ def draw_right_panel(screen, gs):
     card_dice = pygame.Rect(x0, y, C.RIGHT_PANEL_W - 24, 220)
     inner = draw_card(screen, card_dice, "ลูกเต๋า", R.font_md())
     dice_area = pygame.Rect(inner.x, inner.y, inner.w, 120 + 16)
-    draw_dice(screen, gs.dice_value, dice_area)
 
-    # ปุ่มทอย
-    btn_rect = pygame.Rect(inner.x, dice_box := (pygame.Rect(inner.x, inner.y, inner.w, 120 + 16)).copy(), 0) # dummy keep
-    btn_rect = pygame.Rect(inner.x, inner.y + 120 + 16 + 16, inner.w, 48)
+    # วาดลูกเต๋าและได้กล่องเต๋าคืนมา
+    dice_box = draw_dice(screen, gs.dice_value, dice_area)
+
+    # ปุ่มทอย: วางใต้กล่องเต๋า
+    btn_rect = pygame.Rect(inner.x, dice_box.bottom + 16, inner.w, 48)
     hover = btn_rect.collidepoint(pygame.mouse.get_pos())
     draw_button(screen, btn_rect, "ทอยเต๋า (Space/Enter)", R.font_md(), hover)
 
