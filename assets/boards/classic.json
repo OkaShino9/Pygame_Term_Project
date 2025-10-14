@@ -1,0 +1,8 @@
+﻿{
+  "name": "Classic",
+  "grid": 10,
+  "image": "assets/board_560.png",
+  "cell_override": null,
+  "ladders": { "3": 22, "11": 68, "36": 73, "44": 79 },
+  "snakes":  { "93": 15, "97": 28 }
+}

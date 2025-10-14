@@ -1,33 +1,46 @@
-# ==== Board geometry (ปรับได้) ====
-COLS = 10           # จำนวนคอลัมน์
-ROWS = 10           # จำนวนแถว
-CELL = 64           # ขนาดช่อง (พิกเซล)
-MARGIN = 10         # ระยะขอบรอบกระดาน
+﻿# -*- coding: utf-8 -*-
+from pathlib import Path
+from settings import load_settings
 
-# ==== Sidebar (ขวา) ====
-SIDEBAR_W = 180     # ความกว้างแถบด้านขวา
+ROOT = Path(__file__).resolve().parent.parent  # project root
+SET = load_settings(ROOT)
 
-# ==== Derived window size (auto) ====
-W = MARGIN * 2 + COLS * CELL + SIDEBAR_W
-H = MARGIN * 2 + ROWS * CELL
-FPS = 60
+# Window & timing
+W: int   = SET["window"]["width"]
+H: int   = SET["window"]["height"]
+FPS: int = SET["window"]["fps"]
 
-# ==== Colors ====
-COL_BG      = (245, 248, 255)
-COL_GRID    = (170, 180, 210)
-COL_A       = (255, 255, 255)
-COL_B       = (230, 236, 255)
-COL_TEXT    = (40, 50, 80)
-COL_PANEL   = (235, 238, 250)
+# Board defaults (จริงจะถูก apply จากบอร์ด JSON ผ่าน resources.apply_board)
+GRID_DEFAULT: int   = SET["board"]["grid"]
+CELL_DEFAULT: int   = SET["board"]["cell_default"]
+RIGHT_PANEL_W: int  = SET["board"]["right_panel_w"]
 
-# สีงู/บันได
-COL_SNAKE   = (204, 62, 62)   # งู (แดง)
-COL_LADDER  = (60, 160, 95)   # บันได (เขียว)
+# Assets
+ASSETS_DIR        = ROOT / "assets"
+BOARD_IMG_FALLBACK= ROOT / SET["assets"]["board_img"]
+DICE_DIR          = ROOT / SET["assets"]["dice_dir"]
+FONT_PATH         = ROOT / SET["assets"]["font_path"]
 
-# Players (สูงสุด 4 คน: (fill, stroke))
-PLAYER_STYLES = [
-    ((220, 70, 70),  (120, 30, 30)),   # P1
-    ((70, 110, 230), (30, 50, 140)),   # P2
-    ((245, 165, 36), (160, 95, 20)),   # P3 (ส้ม)
-    ((100, 185, 95), (45, 120, 50)),   # P4 (เขียว)
-]
+# Fonts
+FONT_SIZES = SET["fonts"]
+
+# Colors
+COL_BG_TOP   = tuple(SET["colors"]["bg_top"])
+COL_BG_BOT   = tuple(SET["colors"]["bg_bottom"])
+COL_TEXT     = tuple(SET["colors"]["text"])
+COL_SUBT     = tuple(SET["colors"]["subt"])
+COL_BORDER   = tuple(SET["colors"]["border"])
+COL_CARD     = tuple(SET["colors"]["card"])
+COL_BTN      = tuple(SET["colors"]["btn"])
+COL_BTN_H    = tuple(SET["colors"]["btn_hover"])
+COL_BTN_TX   = tuple(SET["colors"]["btn_text"])
+COL_SHADOW   = tuple(SET["colors"]["shadow"])
+COL_WIN_OV   = tuple(SET["colors"]["win_overlay"])
+COL_P        = [tuple(rgb) for rgb in SET["colors"]["players"]]
+
+# Rules (ทั่วไป)
+EXACT_WIN: bool = bool(SET["rules"]["exact_win"])
+
+# Boards multi-json
+BOARDS_DIR = ROOT / SET.get("boards", {}).get("dir", "assets/boards")
+SHUFFLE_EACH_GAME: bool = bool(SET.get("boards", {}).get("shuffle_each_game", True))

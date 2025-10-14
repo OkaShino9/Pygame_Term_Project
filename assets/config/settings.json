@@ -1,0 +1,26 @@
+﻿{
+  "window": { "width": 1300, "height": 780, "fps": 60 },
+  "board": { "grid": 10, "cell_default": 56, "right_panel_w": 360 },
+  "assets": {
+    "board_img": "assets/board_560.png",
+    "dice_dir": "assets/dice",
+    "font_path": "assets/TCS-4KanomPing-PersonalOnly.ttf"
+  },
+  "colors": {
+    "bg_top": [248, 249, 255],
+    "bg_bottom": [230, 235, 250],
+    "text": [36, 48, 84],
+    "subt": [120, 130, 165],
+    "border": [170, 180, 205],
+    "card": [255, 255, 255],
+    "btn": [70, 110, 255],
+    "btn_hover": [90, 130, 255],
+    "btn_text": [255, 255, 255],
+    "shadow": [0, 0, 0, 40],
+    "win_overlay": [0, 0, 0, 160],
+    "players": [[255,96,96],[60,180,130],[90,150,255],[240,180,70]]
+  },
+  "fonts": { "xs": 16, "sm": 18, "md": 22, "lg": 28, "xl": 36, "xxl": 44 },
+  "rules": { "exact_win": false },
+  "boards": { "dir": "assets/boards", "shuffle_each_game": true }
+}

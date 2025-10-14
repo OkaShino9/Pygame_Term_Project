@@ -1,0 +1,8 @@
+﻿{
+  "name": "Quick Ladders",
+  "grid": 10,
+  "image": null,
+  "cell_override": null,
+  "ladders": { "2": 23, "7": 29, "28": 54, "40": 78 },
+  "snakes":  { "91": 35, "96": 42 }
+}
