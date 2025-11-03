@@ -100,30 +100,30 @@ def fallback_button(label, w=360, h=110):
     surf.blit(txt, txt.get_rect(center=(w//2, h//2)))
     return surf
 
-def make_inner_shadow(size, thickness=80, max_alpha=140, corner_radius=24):
-    """
-    สร้าง overlay เงาด้านใน (inner shadow/vignette) ขนาด size
-    - thickness: ความหนาของเงา (px)
-    - max_alpha: ความเข้มสูงสุดที่ขอบ (0-255)
-    - corner_radius: มุมโค้งของเงา
-    """
-    W, H = size
-    overlay = pygame.Surface((W, H), pygame.SRCALPHA)
-    steps = max(1, thickness)
-    for i in range(steps):
-        inset = i
-        a = int(max_alpha * (1 - i / steps))
-        if a <= 0:
-            continue
-        rect = pygame.Rect(inset, inset, W - 2*inset, H - 2*inset)
-        pygame.draw.rect(
-            overlay,
-            (0, 0, 0, a // 2),               # //2 เพราะซ้อนหลายชั้น
-            rect,
-            width=2,
-            border_radius=max(0, corner_radius - i // 6)
-        )
-    return overlay
+# def make_inner_shadow(size, thickness=80, max_alpha=140, corner_radius=24):
+#     """
+#     สร้าง overlay เงาด้านใน (inner shadow/vignette) ขนาด size
+#     - thickness: ความหนาของเงา (px)
+#     - max_alpha: ความเข้มสูงสุดที่ขอบ (0-255)
+#     - corner_radius: มุมโค้งของเงา
+#     """
+#     W, H = size
+#     overlay = pygame.Surface((W, H), pygame.SRCALPHA)
+#     steps = max(1, thickness)
+#     for i in range(steps):
+#         inset = i
+#         a = int(max_alpha * (1 - i / steps))
+#         if a <= 0:
+#             continue
+#         rect = pygame.Rect(inset, inset, W - 2*inset, H - 2*inset)
+#         pygame.draw.rect(
+#             overlay,
+#             (0, 0, 0, a // 2),               # //2 เพราะซ้อนหลายชั้น
+#             rect,
+#             width=2,
+#             border_radius=max(0, corner_radius - i // 6)
+#         )
+#     return overlay
 
 # ===== BUTTON (hover-only base) =====
 class HoverImageButton:
@@ -237,12 +237,12 @@ def run_menu():
         bg_final = pygame.Surface(WINDOW_SIZE); bg_final.fill(LETTERBOX_COLOR)
 
     # ===== สร้าง INNER SHADOW overlay หนึ่งครั้ง =====
-    inner_shadow = make_inner_shadow(
-        WINDOW_SIZE,
-        thickness=INNER_SHADOW_THICKNESS,
-        max_alpha=INNER_SHADOW_MAX_ALPHA,
-        corner_radius=INNER_SHADOW_RADIUS
-    )
+    # inner_shadow = make_inner_shadow(
+    #     WINDOW_SIZE,
+    #     thickness=INNER_SHADOW_THICKNESS,
+    #     max_alpha=INNER_SHADOW_MAX_ALPHA,
+    #     corner_radius=INNER_SHADOW_RADIUS
+    # )
 
     # สเกลปุ่ม/โลโก้ แล้ว convert
     img_start = autoscale_button(img_start, WINDOW_SIZE, BUTTON_RELATIVE_SCALE_START).convert_alpha()
@@ -305,7 +305,7 @@ def run_menu():
 
         # วาด
         screen.blit(bg_final, (0, 0))
-        screen.blit(inner_shadow, (0, 0))  # เงาด้านในบนพื้นหลัง
+        # screen.blit(inner_shadow, (0, 0))  # เงาด้านในบนพื้นหลัง
         if logo_base and logo_rect:
             screen.blit(logo_base, logo_rect)
         start_btn.draw(screen)
