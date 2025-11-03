@@ -12,9 +12,9 @@ TITLE = "ComSci Snakes & Ladders"
 FPS = 60
 
 BG_IMG    = "assets/bg/bg_main.png"
-START_IMG = "assets/button/start.png"
-HOW_IMG   = "assets/button/howtoplay.png"
-LOGO_IMG  = "assets/logo/icon.png"
+START_IMG = "assets/button/button_start.png"
+HOW_IMG   = "assets/button/button_how_to_play.png"
+LOGO_IMG  = "assets/logo/logo.png"
 
 # BG โหมด: "fit" (เห็นครบไม่ซูม), "cover" (เติมเต็มอาจครอป), "exact" (ยืดให้พอดี)
 BG_MODE = "fit"
