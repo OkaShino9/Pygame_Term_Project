@@ -18,7 +18,6 @@ class Button:
         self.time_elapsed = 0
 
     def effect(self, dt):
-        # pulse เบาๆ ด้วย sine
         if self.pulse:
             self.time_elapsed += dt
             scale_factor = 1 + 0.05 * math.sin(self.time_elapsed * 3)
@@ -46,19 +45,24 @@ class MainMenu:
         self.bg = pygame.transform.scale(self.bg, (1280, 720))
 
         self.logo = pygame.image.load("assets/logo/logo.png").convert_alpha()
-        self.logo = pygame.transform.scale(self.logo, (int(self.logo.get_width() * 1.2),
-                                                       int(self.logo.get_height() * 1.2)))
+        self.logo = pygame.transform.scale(
+            self.logo,
+            (int(self.logo.get_width() * 1.2), int(self.logo.get_height() * 1.2))
+        )
         self.logo_rect = self.logo.get_rect(center=(1280 // 2, 200))
 
         # Buttons
-        self.start_button = Button("assets/button/button_start.png",
-                                   center_pos=(1280 // 2, 450),
-                                   size=(300, 150),
-                                   pulse=True)
-
-        self.how_button = Button("assets/button/button_how_to_play.png",
-                                 center_pos=(1280 // 2, 550),
-                                 size=(275, 125))
+        self.start_button = Button(
+            "assets/button/button_start.png",
+            center_pos=(1280 // 2, 450),
+            size=(300, 150),
+            pulse=True
+        )
+        self.how_button = Button(
+            "assets/button/button_how_to_play.png",
+            center_pos=(1280 // 2, 550),
+            size=(275, 125)
+        )
 
     def run(self):
         """แสดงเมนูและรีเทิร์น 'start' หรือ 'how_to_play' เมื่อคลิก"""
@@ -70,10 +74,10 @@ class MainMenu:
                     pygame.quit(); sys.exit()
 
                 if self.start_button.is_clicked(event):
-                    return "start"           # <<< เปลี่ยนจาก print เป็น return
+                    return "start"
 
                 if self.how_button.is_clicked(event):
-                    return "how_to_play"     # <<< เปลี่ยนจาก print เป็น return
+                    return "how_to_play"
 
             # update
             self.start_button.effect(dt)
@@ -86,21 +90,29 @@ class MainMenu:
             pygame.display.flip()
 
 def main():
+    # เสียงเนียนขึ้น
+    pygame.mixer.pre_init(44100, -16, 2, 512)
     pygame.init()
+
     screen = pygame.display.set_mode((1280, 720))
     pygame.display.set_caption("ComSci Snakes & Ladders")
+
+    try:
+        pygame.mixer.music.load("assets/audio/background.ogg")
+        pygame.mixer.music.set_volume(0.05)  # เบาๆ
+        pygame.mixer.music.play(-1)          # เล่นวนตลอด
+    except Exception as e:
+        print("[WARN] BGM:", e)
 
     menu = MainMenu(screen)
     choice = menu.run()
 
     if choice == "start":
-        # ไปหน้าเลือกผู้เล่น
         target_players, order, avatar_paths = run_player_select()
         print("[PLAYER_SELECT]", target_players, order, avatar_paths)
-        # TODO: ส่งต่อไปหน้าเกมจริง run_game(target_players, order, avatar_paths)
+        # TODO: run_game(target_players, order, avatar_paths)
 
     elif choice == "how_to_play":
-        # TODO: เปิดหน้า How-to ของคุณ
         print("[INFO] How-to screen not implemented yet.")
 
     pygame.quit()
