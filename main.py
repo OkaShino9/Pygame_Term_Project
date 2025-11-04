@@ -1,7 +1,9 @@
+# main.py
 import pygame
 import sys
 import math
 
+from player import run_player_select
 
 # --- Button Class ---
 class Button:
@@ -16,7 +18,7 @@ class Button:
         self.time_elapsed = 0
 
     def effect(self, dt):
-        # If pulse enabled, scale smoothly using sin wave
+        # pulse เบาๆ ด้วย sine
         if self.pulse:
             self.time_elapsed += dt
             scale_factor = 1 + 0.05 * math.sin(self.time_elapsed * 3)
@@ -29,8 +31,9 @@ class Button:
         surface.blit(self.image, self.rect)
 
     def is_clicked(self, event):
-        return event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.rect.collidepoint(event.pos)
-
+        return (event.type == pygame.MOUSEBUTTONDOWN and
+                event.button == 1 and
+                self.rect.collidepoint(event.pos))
 
 # --- Main Menu Class ---
 class MainMenu:
@@ -38,7 +41,7 @@ class MainMenu:
         self.screen = screen
         self.clock = pygame.time.Clock()
 
-        # Load background and logo
+        # BG & logo
         self.bg = pygame.image.load("assets/bg/bg_main.png").convert()
         self.bg = pygame.transform.scale(self.bg, (1280, 720))
 
@@ -47,7 +50,7 @@ class MainMenu:
                                                        int(self.logo.get_height() * 1.2)))
         self.logo_rect = self.logo.get_rect(center=(1280 // 2, 200))
 
-        # Create buttons
+        # Buttons
         self.start_button = Button("assets/button/button_start.png",
                                    center_pos=(1280 // 2, 450),
                                    size=(300, 150),
@@ -58,37 +61,49 @@ class MainMenu:
                                  size=(275, 125))
 
     def run(self):
+        """แสดงเมนูและรีเทิร์น 'start' หรือ 'how_to_play' เมื่อคลิก"""
         while True:
-            dt = self.clock.tick(60) / 1000.0  # delta time in seconds
+            dt = self.clock.tick(60) / 1000.0
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
+                    pygame.quit(); sys.exit()
 
                 if self.start_button.is_clicked(event):
-                    print("Start Game")
+                    return "start"           # <<< เปลี่ยนจาก print เป็น return
 
                 if self.how_button.is_clicked(event):
-                    print("How to Play")
+                    return "how_to_play"     # <<< เปลี่ยนจาก print เป็น return
 
-            # update buttons
+            # update
             self.start_button.effect(dt)
 
-            # Draw everything
+            # draw
             self.screen.blit(self.bg, (0, 0))
             self.screen.blit(self.logo, self.logo_rect)
             self.start_button.draw(self.screen)
             self.how_button.draw(self.screen)
-
             pygame.display.flip()
 
-
-# --- Main Game Loop ---
-if __name__ == "__main__":
+def main():
     pygame.init()
     screen = pygame.display.set_mode((1280, 720))
     pygame.display.set_caption("ComSci Snakes & Ladders")
 
     menu = MainMenu(screen)
-    menu.run()
+    choice = menu.run()
+
+    if choice == "start":
+        # ไปหน้าเลือกผู้เล่น
+        target_players, order, avatar_paths = run_player_select()
+        print("[PLAYER_SELECT]", target_players, order, avatar_paths)
+        # TODO: ส่งต่อไปหน้าเกมจริง run_game(target_players, order, avatar_paths)
+
+    elif choice == "how_to_play":
+        # TODO: เปิดหน้า How-to ของคุณ
+        print("[INFO] How-to screen not implemented yet.")
+
+    pygame.quit()
+
+if __name__ == "__main__":
+    main()
