@@ -15,7 +15,7 @@ class Button:
         self.base_size = size
         self.time_elapsed = 0
 
-    def update(self, dt):
+    def effect(self, dt):
         # If pulse enabled, scale smoothly using sin wave
         if self.pulse:
             self.time_elapsed += dt
@@ -72,8 +72,8 @@ class MainMenu:
                 if self.how_button.is_clicked(event):
                     print("How to Play")
 
-            # Update buttons
-            self.start_button.update(dt)
+            # update buttons
+            self.start_button.effect(dt)
 
             # Draw everything
             self.screen.blit(self.bg, (0, 0))
