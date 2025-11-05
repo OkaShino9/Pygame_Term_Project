@@ -2,7 +2,7 @@ import pygame
 import sys
 import math
 
-from player import run_player_select
+from select_player import run_player_select
 from transitions import curtain_transition
 
 # --- Button Class ---
