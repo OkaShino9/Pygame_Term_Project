@@ -140,9 +140,9 @@ def run_player_select():
 
         # ==== ข้อความแนะนำ (hint) ด้านบน ====
         if not target_players:
-            hint = "Select number of players: 2 / 3 / 4"
+            hint = "Select number of players"
         elif len(selected_order) < target_players:
-            hint = f"Pick {target_players} avatars in order ({len(selected_order)}/{target_players})"
+            hint = f"Pick {target_players} characters in order ({len(selected_order)}/{target_players})"
         else:
             hint = "Press ENTER to confirm"
         hint_surf = font.render(hint, True, (255,255,255))
