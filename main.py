@@ -1,9 +1,9 @@
-# main.py
 import pygame
 import sys
 import math
 
 from player import run_player_select
+from transitions import curtain_transition
 
 # --- Button Class ---
 class Button:
@@ -64,6 +64,15 @@ class MainMenu:
             size=(275, 125)
         )
 
+    def render(self):
+        """Render หน้าเมนูและ return surface"""
+        surface = pygame.Surface((1280, 720))
+        surface.blit(self.bg, (0, 0))
+        surface.blit(self.logo, self.logo_rect)
+        self.start_button.draw(surface)
+        self.how_button.draw(surface)
+        return surface
+
     def run(self):
         """แสดงเมนูและรีเทิร์น 'start' หรือ 'how_to_play' เมื่อคลิก"""
         while True:
@@ -90,24 +99,34 @@ class MainMenu:
             pygame.display.flip()
 
 def main():
-    # เสียงเนียนขึ้น
-    pygame.mixer.pre_init(44100, -16, 2, 512)
     pygame.init()
 
     screen = pygame.display.set_mode((1280, 720))
     pygame.display.set_caption("ComSci Snakes & Ladders")
 
-    try:
-        pygame.mixer.music.load("assets/audio/background.ogg")
-        pygame.mixer.music.set_volume(0.05)  # เบาๆ
-        pygame.mixer.music.play(-1)          # เล่นวนตลอด
-    except Exception as e:
-        print("[WARN] BGM:", e)
+    pygame.mixer.music.load("assets/audio/background.ogg")
+    pygame.mixer.music.set_volume(0.05)  # เบาๆ
+    pygame.mixer.music.play(-1)          # เล่นวนตลอด
+
 
     menu = MainMenu(screen)
     choice = menu.run()
 
     if choice == "start":
+        # ถ่าย snapshot หน้าเมนูปัจจุบัน
+        menu_snapshot = menu.render()
+        
+        temp_surface = pygame.Surface((1280, 720))
+        # ทำ transition ด้วยม่าน
+        curtain_transition(
+            screen, 
+            menu_snapshot, 
+            temp_surface,
+            "assets/bg/transitions.png",  # <-- ใส่ path รูปม่านของคุณ
+            duration=0.5  # แต่ละ phase ใช้เวลา 0.5 วินาที (รวม 1 วินาที)
+        )
+        
+        # เรียกหน้า player select จริงๆ
         target_players, order, avatar_paths = run_player_select()
         print("[PLAYER_SELECT]", target_players, order, avatar_paths)
         # TODO: run_game(target_players, order, avatar_paths)
