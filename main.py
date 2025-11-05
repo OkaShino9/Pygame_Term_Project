@@ -4,6 +4,7 @@ import math
 
 from select_player import run_player_select
 from transitions import curtain_transition
+from howtoplay import run_how_to  # <-- เพิ่ม
 
 # --- Button Class ---
 class Button:
@@ -74,7 +75,7 @@ class MainMenu:
         return surface
 
     def run(self):
-        """แสดงเมนูและรีเทิร์น 'start' หรือ 'how_to_play' เมื่อคลิก"""
+        """แสดงเมนูและรีเทิร์น 'start' เมื่อกด START; How-to จะไปหน้าแยกแล้วกลับมา"""
         while True:
             dt = self.clock.tick(60) / 1000.0
 
@@ -86,7 +87,8 @@ class MainMenu:
                     return "start"
 
                 if self.how_button.is_clicked(event):
-                    return "how_to_play"
+                    # ไปหน้า How-to แล้วกลับมาวนเมนูต่อ
+                    run_how_to(self.screen)
 
             # update
             self.start_button.effect(dt)
@@ -108,31 +110,27 @@ def main():
     pygame.mixer.music.set_volume(0.05)  # เบาๆ
     pygame.mixer.music.play(-1)          # เล่นวนตลอด
 
-
     menu = MainMenu(screen)
     choice = menu.run()
 
     if choice == "start":
         # ถ่าย snapshot หน้าเมนูปัจจุบัน
         menu_snapshot = menu.render()
-        
+
         temp_surface = pygame.Surface((1280, 720))
         # ทำ transition ด้วยม่าน
         curtain_transition(
-            screen, 
-            menu_snapshot, 
+            screen,
+            menu_snapshot,
             temp_surface,
-            "assets/bg/transitions.png",  # <-- ใส่ path รูปม่านของคุณ
-            duration=0.5  # แต่ละ phase ใช้เวลา 0.5 วินาที (รวม 1 วินาที)
+            "assets/bg/transitions.png",
+            duration=0.5
         )
-        
+
         # เรียกหน้า player select จริงๆ
         target_players, order, avatar_paths = run_player_select()
         print("[PLAYER_SELECT]", target_players, order, avatar_paths)
         # TODO: run_game(target_players, order, avatar_paths)
-
-    elif choice == "how_to_play":
-        print("[INFO] How-to screen not implemented yet.")
 
     pygame.quit()
 
