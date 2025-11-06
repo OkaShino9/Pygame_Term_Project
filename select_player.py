@@ -65,14 +65,19 @@ class HoverSprite:
         screen.blit(self.hover if self.is_hover else self.normal, self.rect)
 
 # ---- MAIN ----
-def run_player_select():
-    screen = pygame.display.set_mode(WINDOW_SIZE)
+BTN_BACK = "assets/button/back.png"
+
+def run_player_select(screen):
     clock  = pygame.time.Clock()
-    font   = pygame.font.SysFont(None, 24)  # ใช้ฟอนต์เดียว
+    font   = pygame.font.SysFont("Pixeltype", 48)
 
     # BG fit กลางจอ
     bg = scale_fit(load_img(BG_IMG), WINDOW_SIZE).convert()
     bg_rect = bg.get_rect(center=(WINDOW_SIZE[0]//2, WINDOW_SIZE[1]//2))
+
+    # back button
+    back_img = autoscale_by_width(load_img(BTN_BACK), WINDOW_SIZE[0]*0.1, 200, 100)
+    back_btn = HoverSprite(back_img, (100, 50))
 
     # ปุ่ม 2/3/4
     two_img   = autoscale_by_width(load_img(BTN_2P), WINDOW_SIZE[0]*BTN_REL_W, *BTN_MAX_WH)
@@ -110,9 +115,13 @@ def run_player_select():
         for e in pygame.event.get():
             if e.type == pygame.QUIT: pygame.quit(); sys.exit(0)
             if e.type == pygame.KEYDOWN:
-                if e.key in (pygame.K_ESCAPE, pygame.K_q): pygame.quit(); sys.exit(0)
+                if e.key in (pygame.K_ESCAPE, pygame.K_q): return None
                 if e.key in (pygame.K_RETURN, pygame.K_KP_ENTER) and target_players and len(selected_order)==target_players:
-                    return target_players, selected_order, [AVATAR_FILES[i] for i in selected_order]
+                    avatar_paths = [AVATAR_FILES[i] for i in selected_order]
+                    player_infos = [{"avatar": path} for path in avatar_paths]
+                    return player_infos
+
+            if back_btn.clicked(e): return None
 
             # คลิกปุ่มจำนวนผู้เล่น
             if two_btn.clicked(e):   target_players, selected_order = 2, []
@@ -132,11 +141,13 @@ def run_player_select():
 
         # hover update
         mx, my = pygame.mouse.get_pos()
+        back_btn.update_hover((mx,my))
         for b in top_buttons: b.update_hover((mx,my))
         for t in tiles: t.update_hover((mx,my))
 
         # draw
         screen.blit(bg, bg_rect)
+        back_btn.draw(screen)
 
         # ==== ข้อความแนะนำ (hint) ด้านบน ====
         if not target_players:
@@ -158,7 +169,3 @@ def run_player_select():
                 screen.blit(label, label.get_rect(midbottom=(t.rect.centerx, t.rect.top - 6)))
 
         pygame.display.flip()
-
-# demo
-if __name__ == "__main__":
-    print(run_player_select())

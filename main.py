@@ -4,7 +4,8 @@ import math
 
 from select_player import run_player_select
 from transitions import curtain_transition
-from howtoplay import run_how_to  # <-- เพิ่ม
+from howtoplay import run_how_to
+from game import run_game
 
 # --- Button Class ---
 class Button:
@@ -107,32 +108,27 @@ def main():
     pygame.display.set_caption("ComSci Snakes & Ladders")
 
     pygame.mixer.music.load("assets/audio/background.ogg")
-    pygame.mixer.music.set_volume(0.05)  # เบาๆ
-    pygame.mixer.music.play(-1)          # เล่นวนตลอด
+    pygame.mixer.music.set_volume(0.05)
+    pygame.mixer.music.play(-1)
 
-    menu = MainMenu(screen)
-    choice = menu.run()
+    while True:
+        menu = MainMenu(screen)
+        choice = menu.run()
 
-    if choice == "start":
-        # ถ่าย snapshot หน้าเมนูปัจจุบัน
-        menu_snapshot = menu.render()
+        if choice == "start":
+            menu_snapshot = menu.render()
+            temp_surface = pygame.Surface((1280, 720))
+            curtain_transition(
+                screen,
+                menu_snapshot,
+                temp_surface,
+                "assets/bg/transitions.png",
+                duration=0.5
+            )
 
-        temp_surface = pygame.Surface((1280, 720))
-        # ทำ transition ด้วยม่าน
-        curtain_transition(
-            screen,
-            menu_snapshot,
-            temp_surface,
-            "assets/bg/transitions.png",
-            duration=0.5
-        )
-
-        # เรียกหน้า player select จริงๆ
-        target_players, order, avatar_paths = run_player_select()
-        print("[PLAYER_SELECT]", target_players, order, avatar_paths)
-        # TODO: run_game(target_players, order, avatar_paths)
-
-    pygame.quit()
+            player_infos = run_player_select(screen)
+            if player_infos:
+                run_game(screen, player_infos)
 
 if __name__ == "__main__":
     main()
