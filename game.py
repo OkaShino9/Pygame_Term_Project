@@ -75,13 +75,13 @@ class SnakeLaddersGame:
         self.roll_time = 0
         self.roll_value = 1
         self.after_move_check = False
-        self.ladders = { 11: 36, 35: 67, 40: 42, 58: 76, 59: 80, 71: 89 }
+        self.ladders = { 17: 36, 35: 67, 40: 42, 58: 76, 59: 80, 71: 89 }
         self.snakes  = { 31: 14, 48: 28, 56: 22, 73: 21, 82: 42, 92: 75, 98: 66 }
         self.game_over = False
         self.winner = None
 
     def generate_tiles(self, cols, rows, start, size):
-        """Generate 1–100 tile centers (like a real Snakes & Ladders board)."""
+        """Generate 1-100 tile centers (like a real Snakes & Ladders board)."""
         tiles = {}
         w, h = size[0] // cols, size[1] // rows
         x0, y0 = start
@@ -117,12 +117,22 @@ class SnakeLaddersGame:
 
                 path = []
                 start_pos = player.pos
-                end_pos = player.pos + self.roll_value
-                if end_pos > 100:
-                    end_pos = 100
+                potential_pos = player.pos + self.roll_value
 
-                for i in range(start_pos + 1, end_pos + 1):
-                    path.append(self.tiles[i])
+                if potential_pos > 100:
+                    overshoot = potential_pos - 100
+                    end_pos = 100 - overshoot
+                    # Path to 100
+                    for i in range(start_pos + 1, 101):
+                        path.append(self.tiles[i])
+                    # Path back from 100
+                    for i in range(99, end_pos - 1, -1):
+                        path.append(self.tiles[i])
+                else:
+                    end_pos = potential_pos
+                    # Path to end_pos
+                    for i in range(start_pos + 1, end_pos + 1):
+                        path.append(self.tiles[i])
 
                 player.pos = end_pos
                 player.move_along_path(path)

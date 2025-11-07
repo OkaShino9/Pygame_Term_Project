@@ -108,7 +108,7 @@ def main():
     pygame.display.set_caption("ComSci Snakes & Ladders")
 
     pygame.mixer.music.load("assets/audio/background.ogg")
-    pygame.mixer.music.set_volume(0.05)
+    pygame.mixer.music.set_volume(1)
     pygame.mixer.music.play(-1)
 
     while True:
