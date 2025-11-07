@@ -19,11 +19,11 @@ A Python/Pygame project: a digital version of the classic Snakes and Ladders boa
 6. If your roll would take you past the last square, stay in place and wait for your next turn.
 
 ## Getting Started
-1. Install Python 3.x and 
+1. Install Python 3.x
+2. Clone this repository and
    ```bash
    pip install -r requirements.txt
    ```
-2. Clone this repository.
 3. Run the game:
    ```bash
    python main.py
