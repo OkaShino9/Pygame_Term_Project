@@ -1,7 +1,6 @@
 import pygame
 import sys
 import math
-
 from select_player import run_player_select
 from transitions import curtain_transition
 from howtoplay import run_how_to
@@ -108,7 +107,7 @@ def main():
     pygame.display.set_caption("ComSci Snakes & Ladders")
 
     pygame.mixer.music.load("assets/audio/background.ogg")
-    pygame.mixer.music.set_volume(1)
+    pygame.mixer.music.set_volume(0.7)
     pygame.mixer.music.play(-1)
 
     while True:
@@ -126,9 +125,19 @@ def main():
                 duration=0.5
             )
 
-            player_infos = run_player_select(screen)
-            if player_infos:
-                run_game(screen, player_infos)
+            while True: # Loop for player select and game
+                player_infos = run_player_select(screen)
+                if player_infos:
+                    game_result = run_game(screen, player_infos)
+                    if game_result == "back":
+                        # Go back to player select screen
+                        continue
+                    else:
+                        # Win or other game end, break to main menu
+                        break
+                else:
+                    # Closed player select, break to main menu
+                    break
 
 if __name__ == "__main__":
     main()

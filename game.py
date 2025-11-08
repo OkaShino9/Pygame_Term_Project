@@ -80,6 +80,9 @@ class SnakeLaddersGame:
         self.game_over = False
         self.winner = None
 
+        self.back_button_img = load_image("assets/button/back.png", (80, 80))
+        self.back_button_rect = self.back_button_img.get_rect(topleft=(20, 10))
+
     def generate_tiles(self, cols, rows, start, size):
         """Generate 1-100 tile centers (like a real Snakes & Ladders board)."""
         tiles = {}
@@ -211,24 +214,38 @@ class SnakeLaddersGame:
             win_text = win_font.render(f"Player {self.winner + 1} Wins!", True, (255, 215, 0))
             win_rect = win_text.get_rect(center=(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2))
             self.screen.blit(win_text, win_rect)
+        
+        self.screen.blit(self.back_button_img, self.back_button_rect)
 
     def handle_event(self, event):
         if self.game_over:
-            return
+            return None
 
         if event.type == pygame.MOUSEBUTTONDOWN:
             dice_rect = self.current_dice.get_rect(center=DICE_POS)
             if dice_rect.collidepoint(event.pos) and not self.dice_rolling and not self.player_moving:
                 self.roll_dice()
+            
+            if self.back_button_rect.collidepoint(event.pos):
+                return "back"
+        return None
 
     def run(self):
         running = True
+        return_value = None
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-                self.handle_event(event)
+                
+                action = self.handle_event(event)
+                if action == "back":
+                    return_value = "back"
+                    running = False
+            
+            if not running:
+                break
 
             self.update()
             self.draw()
@@ -244,11 +261,12 @@ class SnakeLaddersGame:
                 black_surface.fill((0,0,0))
                 curtain_transition(self.screen, game_over_snapshot, black_surface, "assets/bg/transitions.png")
                 running = False
+        return return_value
 
 # --- Entry Point ---
 def run_game(screen, player_infos):
     pygame.display.set_caption("ComSci Snakes & Ladders")
     game = SnakeLaddersGame(screen, player_infos)
-    game.run()
+    return game.run()
 
 

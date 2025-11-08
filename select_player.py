@@ -20,7 +20,7 @@ AVATAR_FILES = [
 ]
 
 # layout / scale
-TOP_ROW_Y, BOTTOM_ROW_Y = 0.20, 0.66
+TOP_ROW_Y, BOTTOM_ROW_Y = 0.30, 0.66
 TOP_GAP_X, AVATAR_GAP_X = 0.15, 0.07
 BTN_REL_W, BTN_MAX_WH   = 0.18, (420, 140)
 AVA_REL_W, AVA_MAX_WH   = 0.18, (280, 280)
@@ -77,7 +77,7 @@ def run_player_select(screen):
 
     # back button
     back_img = autoscale_by_width(load_img(BTN_BACK), WINDOW_SIZE[0]*0.1, 200, 100)
-    back_btn = HoverSprite(back_img, (100, 50))
+    back_btn = HoverSprite(back_img, (100, 75))
 
     # ปุ่ม 2/3/4
     two_img   = autoscale_by_width(load_img(BTN_2P), WINDOW_SIZE[0]*BTN_REL_W, *BTN_MAX_WH)
