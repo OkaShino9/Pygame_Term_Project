@@ -110,34 +110,39 @@ def main():
     pygame.mixer.music.set_volume(0.7)
     pygame.mixer.music.play(-1)
 
+    state = "main_menu"
+    player_infos = None
+    menu = MainMenu(screen)
+
     while True:
-        menu = MainMenu(screen)
-        choice = menu.run()
+        if state == "main_menu":
+            choice = menu.run()
+            if choice == "start":
+                menu_snapshot = menu.render()
+                temp_surface = pygame.Surface((1280, 720))
+                curtain_transition(
+                    screen,
+                    menu_snapshot,
+                    temp_surface,
+                    "assets/bg/transitions.png",
+                    duration=0.5
+                )
+                state = "select_player"
 
-        if choice == "start":
-            menu_snapshot = menu.render()
-            temp_surface = pygame.Surface((1280, 720))
-            curtain_transition(
-                screen,
-                menu_snapshot,
-                temp_surface,
-                "assets/bg/transitions.png",
-                duration=0.5
-            )
+        elif state == "select_player":
+            pygame.event.clear()
+            player_infos = run_player_select(screen)
+            if player_infos:
+                state = "game"
+            else:
+                state = "main_menu"
 
-            while True: # Loop for player select and game
-                player_infos = run_player_select(screen)
-                if player_infos:
-                    game_result = run_game(screen, player_infos)
-                    if game_result == "back":
-                        # Go back to player select screen
-                        continue
-                    else:
-                        # Win or other game end, break to main menu
-                        break
-                else:
-                    # Closed player select, break to main menu
-                    break
+        elif state == "game":
+            game_result = run_game(screen, player_infos)
+            if game_result == "back":
+                state = "select_player"
+            else:
+                state = "main_menu"
 
 if __name__ == "__main__":
     main()

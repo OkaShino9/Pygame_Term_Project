@@ -80,8 +80,8 @@ class SnakeLaddersGame:
         self.game_over = False
         self.winner = None
 
-        self.back_button_img = load_image("assets/button/back.png", (80, 80))
-        self.back_button_rect = self.back_button_img.get_rect(topleft=(20, 10))
+        self.back_button_img = load_image("assets/button/back.png", (75, 75))
+        self.back_button_rect = self.back_button_img.get_rect(topleft=(20, 5))
 
     def generate_tiles(self, cols, rows, start, size):
         """Generate 1-100 tile centers (like a real Snakes & Ladders board)."""
@@ -189,8 +189,19 @@ class SnakeLaddersGame:
 
         # Display all player avatars in the panel
         num_players = len(self.players)
-        avatar_size = 150
+        max_panel_width = 440 # Leave some padding
         spacing = 10
+
+        if num_players > 0:
+            avatar_size = (max_panel_width - (num_players - 1) * spacing) / num_players
+        else:
+            avatar_size = 0
+
+        if avatar_size > 150:
+            avatar_size = 150
+
+        avatar_size = int(avatar_size)
+
         total_width = num_players * avatar_size + (num_players - 1) * spacing
         start_x = panel_rect.centerx - total_width / 2
 
