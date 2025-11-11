@@ -112,6 +112,7 @@ def main():
 
     state = "main_menu"
     player_infos = None
+    selected_mode = "classic"
     menu = MainMenu(screen)
 
     while True:
@@ -131,14 +132,15 @@ def main():
 
         elif state == "select_player":
             pygame.event.clear()
-            player_infos = run_player_select(screen)
-            if player_infos:
-                state = "game"
-            else:
+            selection = run_player_select(screen)
+            if selection is None:
                 state = "main_menu"
+            else:
+                player_infos, selected_mode = selection
+                state = "game"
 
         elif state == "game":
-            game_result = run_game(screen, player_infos)
+            game_result = run_game(screen, player_infos, mode=selected_mode)
             if game_result == "back":
                 state = "select_player"
             else:
