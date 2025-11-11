@@ -2,16 +2,6 @@ import pygame
 import sys
 
 def curtain_transition(screen, old_surface, new_surface, curtain_image_path, duration=0.6):
-    """
-    ม่านรูปภาพเลื่อนลงมาปิดหน้าจอ แล้วเลื่อนขึ้นไปเปิดเผยหน้าใหม่
-    
-    Args:
-        screen: pygame display surface
-        old_surface: surface ของหน้าจอเก่า
-        new_surface: surface ของหน้าจอใหม่
-        curtain_image_path: path ของรูปม่าน
-        duration: ระยะเวลาแต่ละ phase (ลง + ขึ้น = duration * 2)
-    """
     clock = pygame.time.Clock()
     screen_width, screen_height = screen.get_size()
     
@@ -23,10 +13,8 @@ def curtain_transition(screen, old_surface, new_surface, curtain_image_path, dur
         # ถ้าไม่มีรูป ใช้สีทึบแทน
         curtain = pygame.Surface((screen_width, screen_height))
         curtain.fill((20, 20, 40))
-        print(f"[WARN] ไม่พบรูป {curtain_image_path}, ใช้สีทึบแทน")
     
     # ========== Phase 1: ม่านเลื่อนลงมา ==========
-    print("[TRANSITION] Phase 1: เลื่อนลงมา...")
     elapsed = 0
     while elapsed < duration:
         dt = clock.tick(60) / 1000.0
