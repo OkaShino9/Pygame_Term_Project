@@ -5,7 +5,8 @@ from board_generator import generate_space_board_assets
 # --- CONFIG ---
 SCREEN_WIDTH, SCREEN_HEIGHT = 1280, 720
 BOARD_POS = (80, 80)
-BOARD_SIZE = (600, 600)
+CLASSIC_BOARD_SIZE = (600, 600)
+SPACE_BOARD_SIZE = (640, 640)
 DICE_POS = (990,250)
 TURN_TEXT_POS = (950, 500)
 FONT_COLOR = (255, 255, 255)
@@ -61,15 +62,16 @@ class SnakeLaddersGame:
         self.font = pygame.font.SysFont('Pixeltype',48)
         self.mode_font = pygame.font.SysFont('Pixeltype', 32)
         self.bg = load_image("assets/bg/bg_play.png", (SCREEN_WIDTH, SCREEN_HEIGHT))
-        self.board = load_image("assets/board/Board_with_number.png", BOARD_SIZE)
+        self.board_size = CLASSIC_BOARD_SIZE
+        self.board = load_image("assets/board/Board_with_number.png", self.board_size)
         self.mode = mode
 
         # dice assets
-        self.dice_imgs = [load_image(f"assets/Dice/Isometric/dice_{i}_iso.png", (150, 150)) for i in range(1, 7)]
-        self.current_dice = self.dice_imgs[0]
+        self.dice_imgs = []
+        self.current_dice = None
 
         # board layout
-        self.tiles = self.generate_tiles(10, 10, BOARD_POS, BOARD_SIZE)
+        self.tiles = self.generate_tiles(10, 10, BOARD_POS, self.board_size)
         self.players = [Player(p["avatar"], self.tiles[1]) for p in players]
         self.current_turn = 0
         self.dice_rolling = False
@@ -80,6 +82,9 @@ class SnakeLaddersGame:
         self.ladders = { 17: 36, 35: 67, 40: 42, 58: 76, 59: 80, 71: 89 }
         self.snakes  = { 31: 14, 48: 28, 56: 22, 73: 21, 82: 42, 92: 75, 98: 66 }
         self._configure_layouts()
+        if not self.dice_imgs:
+            self.dice_imgs = self._load_dice_images()
+        self.current_dice = self.dice_imgs[0]
         self.board_rect = self.board.get_rect(topleft=BOARD_POS)
         self.game_over = False
         self.winner = None
@@ -88,18 +93,53 @@ class SnakeLaddersGame:
         self.back_button_rect = self.back_button_img.get_rect(topleft=(20, 5))
 
     def _configure_layouts(self):
-        """Prepare ladders/snakes based on the selected mode."""
-        if self.mode == "space":
-            try:
-                board_surface, snakes_map, ladders_map = generate_space_board_assets()
-                self.board = pygame.transform.smoothscale(board_surface, BOARD_SIZE)
-                if snakes_map:
-                    self.snakes = snakes_map
-                if ladders_map:
-                    self.ladders = ladders_map
-            except Exception:
-                # fall back to default board if generation fails
-                self.board = load_image("assets/board/Board_with_number.png", BOARD_SIZE)
+        """Prepare board assets based on the selected mode."""
+        if self.mode != "space":
+            self.board_size = CLASSIC_BOARD_SIZE
+            self.board = load_image("assets/board/Board_with_number.png", self.board_size)
+            self.tiles = self.generate_tiles(10, 10, BOARD_POS, self.board_size)
+            for player in self.players:
+                player.rect.center = self.tiles[player.pos]
+            self.dice_imgs = self._load_dice_images()
+            return
+
+        self.board_size = SPACE_BOARD_SIZE
+        try:
+            board_surface, snakes_map, ladders_map, grid_map = generate_space_board_assets()
+            src_size = board_surface.get_size()
+            self.board = pygame.transform.smoothscale(board_surface, self.board_size)
+            if snakes_map:
+                self.snakes = snakes_map
+            if ladders_map:
+                self.ladders = ladders_map
+            if grid_map:
+                self.tiles = self._tiles_from_generator(grid_map, src_size)
+            else:
+                self.tiles = self.generate_tiles(10, 10, BOARD_POS, self.board_size)
+            for player in self.players:
+                player.rect.center = self.tiles[player.pos]
+        except Exception:
+            # fall back to default board if generation fails
+            self.board_size = CLASSIC_BOARD_SIZE
+            self.board = load_image("assets/board/Board_with_number.png", self.board_size)
+            self.tiles = self.generate_tiles(10, 10, BOARD_POS, self.board_size)
+            for player in self.players:
+                player.rect.center = self.tiles[player.pos]
+        self.dice_imgs = self._load_dice_images()
+
+    def _tiles_from_generator(self, grid_map, source_size):
+        """Convert generator-provided coords into screen tile centers."""
+        src_w, src_h = source_size
+        scale_x = self.board_size[0] / src_w
+        scale_y = self.board_size[1] / src_h
+        tiles = {}
+        for cell, (x, y) in grid_map.items():
+            tiles[cell] = (BOARD_POS[0] + x * scale_x, BOARD_POS[1] + y * scale_y)
+        return tiles
+
+    def _load_dice_images(self):
+        """Load the shared isometric dice visuals."""
+        return [load_image(f"assets/Dice/Isometric/dice_{i}_iso.png", (150, 150)) for i in range(1, 7)]
 
     def generate_tiles(self, cols, rows, start, size):
         """Generate 1-100 tile centers (like a real Snakes & Ladders board)."""
@@ -194,7 +234,7 @@ class SnakeLaddersGame:
         self.screen.blit(self.bg, (0, 0))
         self.screen.blit(self.board, self.board_rect)
         if self.mode == "space":
-            mode_label = self.mode_font.render("Mode: Space", True, (255, 255, 200))
+            mode_label = self.mode_font.render("Mode: Special", True, (255, 255, 200))
         else:
             mode_label = self.mode_font.render("Mode: Classic", True, (255, 255, 255))
         self.screen.blit(mode_label, (BOARD_POS[0], BOARD_POS[1] - 40))

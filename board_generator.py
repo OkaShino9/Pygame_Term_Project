@@ -13,6 +13,7 @@ GRID_SIZE = 10
 MARGIN = 50
 WIDTH = CELL_SIZE * GRID_SIZE + MARGIN * 2
 HEIGHT = CELL_SIZE * GRID_SIZE + MARGIN * 2
+BASE_DIR = Path(__file__).resolve().parent
 
 # --- Colors & Pattern ---
 PASTEL_COLORS = [
@@ -66,30 +67,26 @@ def darken(color, factor=0.7):
 
 # --- Load Snake Head Images ---
 BASE_HEAD_SIZE = 50
-BASE_DIR = Path(__file__).resolve().parent
 SNAKE_HEAD_CACHE: dict[str, pygame.Surface] = {}
 
-
 def load_snake_head(rel_path: str, fallback_color: tuple[int, int, int]) -> pygame.Surface:
-    cached = SNAKE_HEAD_CACHE.get(rel_path)
-    if cached:
-        return cached
-    abs_path = (BASE_DIR / rel_path).resolve()
+    if rel_path in SNAKE_HEAD_CACHE:
+        return SNAKE_HEAD_CACHE[rel_path]
+    abs_path = BASE_DIR / rel_path
     try:
-        if not abs_path.exists():
-            raise FileNotFoundError(abs_path)
         img = pygame.image.load(abs_path.as_posix())
         if pygame.display.get_surface():
             img = img.convert_alpha()
         head = pygame.transform.smoothscale(img, (BASE_HEAD_SIZE, BASE_HEAD_SIZE))
-    except (pygame.error, FileNotFoundError) as exc:
-        print(f"Warning loading snake head ({abs_path}): {exc}. Using placeholder.")
+    except Exception as exc:  # pragma: no cover - runtime asset issue
+        print(f"[snake-head] warning ({abs_path}): {exc}")
         head = pygame.Surface((BASE_HEAD_SIZE, BASE_HEAD_SIZE), pygame.SRCALPHA)
         head.fill(fallback_color)
     SNAKE_HEAD_CACHE[rel_path] = head
     return head
 
-def draw_board(surface):
+def draw_board(target_surface=None):
+    surface = target_surface if target_surface is not None else pygame.Surface((WIDTH, HEIGHT))
     pastel_len = len(PASTEL_COLORS)
     def lighten(color, factor=0.6):
         return tuple(int(c + (255 - c) * factor) for c in color)
@@ -106,6 +103,7 @@ def draw_board(surface):
             text = font.render(str(cell_num), True, (80, 80, 80))
             text_rect = text.get_rect(center=(x + CELL_SIZE/2, y + CELL_SIZE/2))
             surface.blit(text, text_rect)
+    return surface
 
 def grid_to_pixel(cell_number):
     cell_number -= 1
@@ -370,29 +368,7 @@ def draw_snake(surf, curve, colors, head_img, pattern_positions):
     surf.blit(rotated_head, rect)
 
 
-def draw_all_snakes(surface, snake_pos, snake_curves, snake_defs, snake_patterns):
-    for i in range(len(snake_pos)):
-        if i < len(snake_curves):
-            snake_def = snake_defs[i]
-            head_img = load_snake_head(snake_def["head_path"], snake_def["colors"][0])
-            draw_snake(surface, snake_curves[i], snake_def["colors"], head_img, snake_patterns[i])
-            if SHOW_START_END_POINTS:
-                end_pos = snake_curves[i][-1]
-                pygame.draw.circle(surface, (255, 255, 255), end_pos, 8)
-                pygame.draw.circle(surface, (255, 200, 0), end_pos, 6)
-
-
-def draw_all_ladders(surface, ladder_pos, ladder_colors):
-    for (start, end), color in zip(ladder_pos, ladder_colors):
-        p1, p2 = grid_to_pixel(start), grid_to_pixel(end)
-        draw_solid_ladder(surface, p1, p2, darken(color, 0.8), color)
-        if SHOW_START_END_POINTS:
-            pygame.draw.circle(surface, (255, 255, 255), p1, 8)
-            pygame.draw.circle(surface, (0, 200, 0), p1, 6)
-            pygame.draw.circle(surface, (255, 255, 255), p2, 8)
-            pygame.draw.circle(surface, (0, 100, 255), p2, 6)
-
-def regenerate_board():
+def generate_board_state():
     num_snakes_to_generate = np.random.randint(MIN_SNAKES_TO_GENERATE, MAX_SNAKES_TO_GENERATE + 1)
     num_ladders = np.random.randint(MIN_LADDERS_TO_GENERATE, MAX_LADDERS_TO_GENERATE + 1)
 
@@ -408,7 +384,7 @@ def regenerate_board():
         guaranteed_defs = list(SNAKE_DEFINITIONS)
         random.shuffle(guaranteed_defs)
 
-        snake_defs.extend(guaranteed_defs[: min(num_snakes, len(guaranteed_defs))])
+        snake_defs.extend(guaranteed_defs[:min(num_snakes, len(guaranteed_defs))])
 
         remaining_slots = num_snakes - len(snake_defs)
         if remaining_slots > 0:
@@ -437,32 +413,81 @@ def regenerate_board():
         if final_curve:
             snake_curves.append(final_curve)
             snake_patterns.append(generate_pattern_positions(final_curve))
+
     return snake_positions, ladder_positions, snake_defs, ladder_colors, snake_curves, snake_patterns
 
 
-def render_board(surface, snake_pos, ladder_pos, snake_defs, ladder_colors, snake_curves, snake_patterns):
-    surface.fill((200, 200, 200))
-    if DRAW_BOARD_BACKGROUND:
+def _render_ladders(target_surface, ladder_pos, ladder_colors):
+    for (start, end), color in zip(ladder_pos, ladder_colors):
+        p1, p2 = grid_to_pixel(start), grid_to_pixel(end)
+        draw_solid_ladder(target_surface, p1, p2, darken(color, 0.8), color)
+        if SHOW_START_END_POINTS:
+            pygame.draw.circle(target_surface, (255, 255, 255), p1, 8)
+            pygame.draw.circle(target_surface, (0, 200, 0), p1, 6)
+            pygame.draw.circle(target_surface, (255, 255, 255), p2, 8)
+            pygame.draw.circle(target_surface, (0, 100, 255), p2, 6)
+
+
+def _render_snakes(target_surface, snake_defs, snake_curves, snake_patterns):
+    for snake_def, curve, pattern in zip(snake_defs, snake_curves, snake_patterns):
+        head_img = load_snake_head(snake_def["head_path"], snake_def["colors"][0])
+        draw_snake(target_surface, curve, snake_def["colors"], head_img, pattern)
+        if SHOW_START_END_POINTS:
+            end_pos = curve[-1]
+            pygame.draw.circle(target_surface, (255, 255, 255), end_pos, 8)
+            pygame.draw.circle(target_surface, (255, 200, 0), end_pos, 6)
+
+
+def render_board_surface(
+    snake_pos,
+    ladder_pos,
+    snake_defs,
+    ladder_colors,
+    snake_curves,
+    snake_patterns,
+    *,
+    draw_background=True,
+    ladder_on_top=False,
+    background_color=None,
+    target_surface=None,
+):
+    surface = target_surface or pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    if background_color is not None:
+        surface.fill(background_color)
+    elif target_surface is None:
+        surface.fill((0, 0, 0, 0))
+
+    if draw_background:
         draw_board(surface)
-    if LADDER_ON_TOP:
-        draw_all_snakes(surface, snake_pos, snake_curves, snake_defs, snake_patterns)
-        draw_all_ladders(surface, ladder_pos, ladder_colors)
+
+    if ladder_on_top:
+        _render_snakes(surface, snake_defs, snake_curves, snake_patterns)
+        _render_ladders(surface, ladder_pos, ladder_colors)
     else:
-        draw_all_ladders(surface, ladder_pos, ladder_colors)
-        draw_all_snakes(surface, snake_pos, snake_curves, snake_defs, snake_patterns)
+        _render_ladders(surface, ladder_pos, ladder_colors)
+        _render_snakes(surface, snake_defs, snake_curves, snake_patterns)
+
+    return surface
 
 
 def generate_space_board_assets():
-    snake_pos, ladder_pos, snake_defs, ladder_colors, snake_curves, snake_patterns = regenerate_board()
-    full_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-    render_board(full_surface, snake_pos, ladder_pos, snake_defs, ladder_colors, snake_curves, snake_patterns)
-    board_rect = pygame.Rect(MARGIN, MARGIN, CELL_SIZE * GRID_SIZE, CELL_SIZE * GRID_SIZE)
-    board_surface = pygame.Surface(board_rect.size, pygame.SRCALPHA)
-    board_surface.blit(full_surface, (0, 0), board_rect)
-    snake_map = {start: end for start, end in snake_pos}
-    ladder_map = {start: end for start, end in ladder_pos}
-    return board_surface, snake_map, ladder_map
+    snake_pos, ladder_pos, snake_defs, ladder_colors, snake_curves, snake_patterns = generate_board_state()
+    board_surface = render_board_surface(
+        snake_pos,
+        ladder_pos,
+        snake_defs,
+        ladder_colors,
+        snake_curves,
+        snake_patterns,
+        draw_background=True,
+        ladder_on_top=LADDER_ON_TOP,
+        background_color=None,
+    ).convert_alpha()
 
+    snakes_map = {start: end for start, end in snake_pos}
+    ladders_map = {start: end for start, end in ladder_pos}
+    grid_map = {cell: grid_to_pixel(cell) for cell in range(1, GRID_SIZE * GRID_SIZE + 1)}
+    return board_surface, snakes_map, ladders_map, grid_map
 
 def main():
     pygame.display.set_caption("Snake & Ladder Board Generator")
@@ -471,22 +496,31 @@ def main():
     running = True
 
     if GENERATE_BOARD_ON_STARTUP:
-        snake_pos, ladder_pos, snake_defs, ladder_colors, snake_curves, snake_patterns = regenerate_board()
+        state = generate_board_state()
     else:
-        snake_pos, ladder_pos, snake_defs, ladder_colors, snake_curves, snake_patterns = [], [], [], [], [], []
+        state = ([], [], [], [], [], [])
 
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE and ENABLE_SPACEBAR_REGENERATION:
-                snake_pos, ladder_pos, snake_defs, ladder_colors, snake_curves, snake_patterns = regenerate_board()
-        
-        render_board(screen, snake_pos, ladder_pos, snake_defs, ladder_colors, snake_curves, snake_patterns)
-        
+            elif (
+                event.type == pygame.KEYDOWN
+                and event.key == pygame.K_SPACE
+                and ENABLE_SPACEBAR_REGENERATION
+            ):
+                state = generate_board_state()
+
+        render_board_surface(
+            *state,
+            draw_background=DRAW_BOARD_BACKGROUND,
+            ladder_on_top=LADDER_ON_TOP,
+            background_color=(200, 200, 200),
+            target_surface=screen,
+        )
         pygame.display.flip()
         clock.tick(60)
-        
+
     pygame.quit()
 
 if __name__ == "__main__":

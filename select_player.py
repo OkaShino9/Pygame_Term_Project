@@ -34,8 +34,14 @@ MODE_HIGHLIGHT_COLOR = (255, 220, 120)
 MODE_DEFAULT = "classic"
 
 # ---- UTIL ----
-def load_img(path): 
-    return pygame.image.load(path)
+def load_img(path):
+    try:
+        return pygame.image.load(path)
+    except (pygame.error, FileNotFoundError):
+        # fallback surface if asset missing
+        surf = pygame.Surface((10, 10), pygame.SRCALPHA)
+        surf.fill((200, 200, 200, 255))
+        return surf
 
 def scale_fit(img, out_size):
     iw, ih = img.get_size(); W, H = out_size
