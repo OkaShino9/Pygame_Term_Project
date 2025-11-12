@@ -105,7 +105,7 @@ def run_player_select(screen):
     mode_gap = int(WINDOW_SIZE[0] * MODE_GAP_X)
     classic_btn = HoverSprite(classic_img, (mode_center_x - mode_gap, mode_y))
     special_btn = HoverSprite(special_img, (mode_center_x + mode_gap, mode_y))
-    mode_buttons = {"classic": classic_btn, "space": special_btn}
+    mode_buttons = {"classic": classic_btn, "special": special_btn}
 
     # ปุ่ม 2/3/4
     two_img   = autoscale_by_width(load_img(BTN_2P), WINDOW_SIZE[0]*BTN_REL_W, *BTN_MAX_WH)
@@ -194,7 +194,7 @@ def run_player_select(screen):
         else:
             hint = "Press ENTER to confirm"
         hint_surf = font.render(hint, True, (255,255,255))
-        mode_label = "Classic" if selected_mode == "classic" else "Space"
+        mode_label = "Classic" if selected_mode == "classic" else "special"
         mode_surf = mode_font.render(f"Mode: {mode_label}", True, (255, 255, 255))
         row_y = int(WINDOW_SIZE[1]*0.10)
         spacing = 24
