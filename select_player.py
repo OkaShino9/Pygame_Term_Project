@@ -159,7 +159,7 @@ def run_player_select(screen):
 
             # คลิกเลือกโหมด
             if classic_btn.clicked(e): selected_mode = "classic"
-            if special_btn.clicked(e): selected_mode = "space"
+            if special_btn.clicked(e): selected_mode = "spacial"
 
             # คลิกเลือกอวาตาร์ตามลำดับ
             if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and target_players:
@@ -194,7 +194,7 @@ def run_player_select(screen):
         else:
             hint = "Press ENTER to confirm"
         hint_surf = font.render(hint, True, (255,255,255))
-        mode_label = "Classic" if selected_mode == "classic" else "special"
+        mode_label = "Classic" if selected_mode == "classic" else "Special"
         mode_surf = mode_font.render(f"Mode: {mode_label}", True, (255, 255, 255))
         row_y = int(WINDOW_SIZE[1]*0.10)
         spacing = 24

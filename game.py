@@ -89,7 +89,7 @@ class SnakeLaddersGame:
         self.game_over = False
         self.winner = None
 
-        self.back_button_img = load_image("assets/button/back.png", (75, 75))
+        self.back_button_img = load_image("assets/button/back.png", (100, 75))
         self.back_button_rect = self.back_button_img.get_rect(topleft=(20, 5))
 
     def _configure_layouts(self):
@@ -137,6 +137,27 @@ class SnakeLaddersGame:
             tiles[cell] = (BOARD_POS[0] + x * scale_x, BOARD_POS[1] + y * scale_y)
         return tiles
 
+    def regenerate_snakes_and_ladders(self):
+        if self.mode != "space":
+            return
+        try:
+            board_surface, snakes_map, ladders_map, grid_map = generate_space_board_assets()
+            src_size = board_surface.get_size()
+            self.board = pygame.transform.smoothscale(board_surface, self.board_size)
+            if snakes_map:
+                self.snakes = snakes_map
+            if ladders_map:
+                self.ladders = ladders_map
+            if grid_map:
+                self.tiles = self._tiles_from_generator(grid_map, src_size)
+        except Exception:
+            # fallback to default board if generation fails
+            self.board_size = CLASSIC_BOARD_SIZE
+            self.board = load_image("assets/board/Board_with_number.png", self.board_size)
+            self.tiles = self.generate_tiles(10, 10, BOARD_POS, self.board_size)
+            self.snakes  = { 31: 14, 48: 28, 56: 22, 73: 21, 82: 42, 92: 75, 98: 66 }
+            self.ladders = { 17: 36, 35: 67, 40: 42, 58: 76, 59: 80, 71: 89 }
+
     def _load_dice_images(self):
         """Load the shared isometric dice visuals."""
         return [load_image(f"assets/Dice/Isometric/dice_{i}_iso.png", (150, 150)) for i in range(1, 7)]
@@ -157,6 +178,7 @@ class SnakeLaddersGame:
         return tiles
 
     def roll_dice(self):
+        self.regenerate_snakes_and_ladders()
         self.dice_rolling = True
         self.roll_time = time.time()
         self.roll_value = random.randint(1, 6)
@@ -234,10 +256,10 @@ class SnakeLaddersGame:
         self.screen.blit(self.bg, (0, 0))
         self.screen.blit(self.board, self.board_rect)
         if self.mode == "space":
-            mode_label = self.mode_font.render("Mode: Special", True, (255, 255, 200))
+            mode_label = self.mode_font.render("Mode: Special", True, (255, 255, 255))
         else:
             mode_label = self.mode_font.render("Mode: Classic", True, (255, 255, 255))
-        self.screen.blit(mode_label, (BOARD_POS[0], BOARD_POS[1] - 40))
+        self.screen.blit(mode_label, (BOARD_POS[0] + 45, BOARD_POS[1] - 45))
 
         # draw dice
         self.screen.blit(self.current_dice, self.current_dice.get_rect(center=DICE_POS ))
