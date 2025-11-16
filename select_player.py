@@ -22,14 +22,14 @@ BTN_MODE_CLASSIC = "assets/button/button_classic.png"
 BTN_MODE_SPECIAL = "assets/button/button_special.png"
 
 # layout / scale
-TOP_ROW_Y, BOTTOM_ROW_Y = 0.30, 0.66
+TOP_ROW_Y, BOTTOM_ROW_Y = 0.35, 0.66
 TOP_GAP_X, AVATAR_GAP_X = 0.15, 0.07
-BTN_REL_W, BTN_MAX_WH   = 0.18, (420, 140)
+BTN_REL_W, BTN_MAX_WH   = 0.15, (380, 120)
 AVA_REL_W, AVA_MAX_WH   = 0.18, (280, 280)
 HOVER_SCALE = 1.05
-MODE_ROW_Y = 0.18
+MODE_ROW_Y = 0.25
 MODE_GAP_X = 0.12
-MODE_BTN_REL_W, MODE_BTN_MAX_WH = 0.13, (260, 120)
+MODE_BTN_REL_W, MODE_BTN_MAX_WH = 0.17, (450, 150)
 MODE_HIGHLIGHT_COLOR = (255, 220, 120)
 MODE_DEFAULT = "classic"
 
@@ -55,6 +55,25 @@ def autoscale_by_width(img, target_w, max_w, max_h):
     if h > max_h:
         s = max_h/ih; w, h = int(iw*s), int(ih*s)
     return pygame.transform.smoothscale(img, (w, h))
+
+def draw_neobrutalist_box(screen, text, center_pos, font, bg_color=(255, 255, 255), text_color=(0, 0, 0), border_color=(0, 0, 0), shadow_offset=(8, 8), padding=(20, 12), border_width=4):
+    text_surf = font.render(text, True, text_color)
+    text_rect = text_surf.get_rect()
+
+    box_size = (text_rect.width + padding[0] * 2, text_rect.height + padding[1] * 2)
+    box_rect = pygame.Rect((0, 0), box_size)
+    box_rect.center = center_pos
+
+    shadow_rect = box_rect.copy()
+    shadow_rect.x += shadow_offset[0]
+    shadow_rect.y += shadow_offset[1]
+
+    pygame.draw.rect(screen, border_color, shadow_rect, border_radius=6)
+    pygame.draw.rect(screen, bg_color, box_rect, border_radius=6)
+    pygame.draw.rect(screen, border_color, box_rect, border_width, border_radius=6)
+
+    text_rect.center = box_rect.center
+    screen.blit(text_surf, text_rect)
 
 # ---- Hover sprite (ปุ่ม/อวาตาร์ ใช้ตัวเดียว) ----
 class HoverSprite:
@@ -186,24 +205,37 @@ def run_player_select(screen):
         for btn in mode_buttons.values():
             btn.draw(screen)
 
-        # ==== ข้อความแนะนำ (hint) ด้านบน ====
+        # ==== Neo-brutalist Hint and Mode Display ====
         if not target_players:
             hint = "Select number of players"
         elif len(selected_order) < target_players:
             hint = f"Pick {target_players} characters in order ({len(selected_order)}/{target_players})"
         else:
             hint = "Press ENTER to confirm"
-        hint_surf = font.render(hint, True, (255,255,255))
+
         mode_label = "Classic" if selected_mode == "classic" else "Special"
-        mode_surf = mode_font.render(f"Mode: {mode_label}", True, (255, 255, 255))
-        row_y = int(WINDOW_SIZE[1]*0.10)
-        spacing = 24
-        total_width = hint_surf.get_width() + spacing + mode_surf.get_width()
+        mode_text = f"Mode: {mode_label}"
+
+        row_y = int(WINDOW_SIZE[1] * 0.115)
+        spacing = 40
+        padding = (20, 12)
+
+        # Pre-render text to get dimensions for layout
+        hint_surf = font.render(hint, True, (0, 0, 0))
+        mode_surf = mode_font.render(mode_text, True, (0, 0, 0))
+
+        hint_box_w = hint_surf.get_width() + padding[0] * 2
+        mode_box_w = mode_surf.get_width() + padding[0] * 2
+
+        total_width = hint_box_w + spacing + mode_box_w
         start_x = (WINDOW_SIZE[0] - total_width) // 2
-        hint_rect = hint_surf.get_rect(midleft=(start_x, row_y))
-        mode_rect = mode_surf.get_rect(midleft=(hint_rect.right + spacing, row_y))
-        screen.blit(hint_surf, hint_rect)
-        screen.blit(mode_surf, mode_rect)
+
+        hint_center_x = start_x + hint_box_w / 2
+        mode_center_x = start_x + hint_box_w + spacing + mode_box_w / 2
+
+        # Draw the boxes
+        draw_neobrutalist_box(screen, hint, (hint_center_x, row_y), font)
+        draw_neobrutalist_box(screen, mode_text, (mode_center_x, row_y), mode_font)
 
         # ปุ่มบน + อวาตาร์
         for b in top_buttons: b.draw(screen)
