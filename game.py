@@ -92,6 +92,13 @@ class SnakeLaddersGame:
         self.back_button_img = load_image("assets/button/back.png", (75, 75))
         self.back_button_rect = self.back_button_img.get_rect(topleft=(20, 5))
 
+        self.dice_sound = None
+        try:
+            self.dice_sound = pygame.mixer.Sound("assets/audio/shuffle.mp3")
+            self.dice_sound.set_volume(0.7)
+        except pygame.error:
+            self.dice_sound = None
+
     def _configure_layouts(self):
         """Prepare board assets based on the selected mode."""
         if self.mode != "space":
@@ -160,6 +167,9 @@ class SnakeLaddersGame:
         self.dice_rolling = True
         self.roll_time = time.time()
         self.roll_value = random.randint(1, 6)
+        if self.dice_sound:
+            self.dice_sound.stop()
+            self.dice_sound.play()
 
     def update(self):
         if self.game_over:
