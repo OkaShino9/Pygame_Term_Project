@@ -99,6 +99,13 @@ class SnakeLaddersGame:
         except pygame.error:
             self.dice_sound = None
 
+        self.win_sound = None
+        try:
+            self.win_sound = pygame.mixer.Sound("assets/audio/winner.mp3")
+            self.win_sound.set_volume(0.8)
+        except pygame.error:
+            self.win_sound = None
+
     def _configure_layouts(self):
         """Prepare board assets based on the selected mode."""
         if self.mode != "space":
@@ -246,6 +253,9 @@ class SnakeLaddersGame:
                     if player.pos == 100:
                         self.game_over = True
                         self.winner = self.current_turn
+                        if self.win_sound:
+                            self.win_sound.stop()
+                            self.win_sound.play()
                         return
 
                     if player.pos in self.ladders:
