@@ -2,13 +2,14 @@
 
 ![ComSci Snakes & Ladders](assets/logo/logo.png)
 
-A Python/Pygame project: a digital version of the classic Snakes and Ladders board game, themed for the Department of Mathematics and Computer Science.
+A Python/Pygame project: a digital version of the classic Snakes and Ladders board game, themed for the Department of Mathematics and Computer Science Chulalongkorn university.
 
 ## Features
 - Playable digital Snakes and Ladders game
 - Animated buttons and logo
 - Custom pixel art assets
 - Simple, intuitive interface
+- Special mode
 
 ## How to Play
 1. Each player takes turns rolling the dice.
