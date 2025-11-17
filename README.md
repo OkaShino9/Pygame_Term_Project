@@ -1,5 +1,7 @@
 # ComSci Snakes & Ladders
 
+เกมบันไดงู(sec1) มาดูงูห้องเรามั้ย
+
 ![ComSci Snakes & Ladders](assets/logo/logo.png)
 
 A Python/Pygame project: a digital version of the classic Snakes and Ladders board game, themed for the Department of Mathematics and Computer Science Chulalongkorn university.
