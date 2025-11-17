@@ -178,7 +178,7 @@ def run_player_select(screen):
 
             # คลิกเลือกโหมด
             if classic_btn.clicked(e): selected_mode = "classic"
-            if special_btn.clicked(e): selected_mode = "spacial"
+            if special_btn.clicked(e): selected_mode = "special"
 
             # คลิกเลือกอวาตาร์ตามลำดับ
             if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and target_players:

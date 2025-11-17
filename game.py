@@ -108,7 +108,7 @@ class SnakeLaddersGame:
 
     def _configure_layouts(self):
         """Prepare board assets based on the selected mode."""
-        if self.mode != "space":
+        if self.mode != "special":
             self.board_size = CLASSIC_BOARD_SIZE
             self.board = load_image("assets/board/Board_with_number.png", self.board_size)
             self.tiles = self.generate_tiles(10, 10, BOARD_POS, self.board_size)
@@ -152,7 +152,7 @@ class SnakeLaddersGame:
         return tiles
 
     def regenerate_snakes_and_ladders(self):
-        if self.mode != "space":
+        if self.mode != "special":
             return
         try:
             board_surface, snakes_map, ladders_map, grid_map = generate_space_board_assets()
@@ -275,7 +275,7 @@ class SnakeLaddersGame:
     def draw(self):
         self.screen.blit(self.bg, (0, 0))
         self.screen.blit(self.board, self.board_rect)
-        if self.mode == "space":
+        if self.mode == "special":
             mode_label = self.mode_font.render("Mode: Special", True, (255, 255, 255))
         else:
             mode_label = self.mode_font.render("Mode: Classic", True, (255, 255, 255))
