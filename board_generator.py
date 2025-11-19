@@ -7,7 +7,9 @@ from pathlib import Path
 
 pygame.init()
 
-# --- Setup ---
+# Configuration & Constants
+
+# --- Board Dimensions ---
 CELL_SIZE = 60
 GRID_SIZE = 10
 MARGIN = 50
@@ -15,10 +17,12 @@ WIDTH = CELL_SIZE * GRID_SIZE + MARGIN * 2
 HEIGHT = CELL_SIZE * GRID_SIZE + MARGIN * 2
 BASE_DIR = Path(__file__).resolve().parent
 
-# --- Colors & Pattern ---
+# --- Colors ---
 PASTEL_COLORS = [
     (253, 231, 189), (240, 186, 77), (141, 178, 170), (187, 148, 181)
 ]
+
+# --- Snake Assets & Appearance ---
 SNAKE_DEFINITIONS = [
     {"colors": ((132, 0, 190), (155, 27, 235)), "head_path": "assets/snake/snake_head_484px_purple.png"},
     {"colors": ((0, 121, 190), (27, 176, 235)), "head_path": "assets/snake/snake_head_484px_blue.png"},
@@ -26,204 +30,284 @@ SNAKE_DEFINITIONS = [
     {"colors": ((190, 28, 0), (235, 41, 27)), "head_path": "assets/snake/snake_head_484px_red.png"},
     {"colors": ((129, 189, 0), (187, 235, 27)), "head_path": "assets/snake/snake_head_484px_green.png"},
 ]
+
+# Snake Body Rendering Settings
 SNAKE_PATTERN_SIZE_MULTIPLIER = 0.95
 SNAKE_STRIPE_HEIGHT = 8
 SNAKE_MAX_OUTLINE = 18
 SNAKE_MIN_OUTLINE = 10
 SNAKE_MAX_INNER = 14
 SNAKE_MIN_INNER = 6
+
+# Ladder Rendering Settings
 LADDER_RAIL_THICKNESS = 6
 LADDER_RUNG_THICKNESS = 4
 
-# --- Balance & Distribution Controls ---
-EXCLUSION_ZONE_RADIUS = 2
-SNAKE_MIN_BODY_DISTANCE = 30
-MAX_CURVE_GENERATION_ATTEMPTS = 10
-MIN_SNAKES_TO_GENERATE = 8         
+# --- Game Balance & Generation Rules ---
+EXCLUSION_ZONE_RADIUS = 2          # Minimum grid distance between different objects
+SNAKE_MIN_BODY_DISTANCE = 30       # Minimum pixel distance between snake curves to prevent overlap
+MAX_CURVE_GENERATION_ATTEMPTS = 10 # Retries for generating a non-overlapping curve
+
+# Quantity Limits
+MIN_SNAKES_TO_GENERATE = 8
 MAX_SNAKES_TO_GENERATE = 10
 MIN_LADDERS_TO_GENERATE = 8
 MAX_LADDERS_TO_GENERATE = 10
+
+# Length & Reach Limits
 MAX_ITEM_LENGTH_CELLS = 20
 MIN_ITEM_LENGTH_CELLS = 10
 SNAKE_MAX_X_DISTANCE_CELLS = 5
-LADDER_MAX_X_DISTANCE_CELLS = 5 # --- ส่วนที่เพิ่ม: ค่าจำกัดระยะห่างแกน X ของบันได ---
+LADDER_MAX_X_DISTANCE_CELLS = 5    # Maximum horizontal span for ladders to prevent them from looking too flat
 
-# --- On/Off Switches ---
+# --- Feature Toggles (Debug & Display) ---
 GENERATE_BOARD_ON_STARTUP = True
 ENABLE_SPACEBAR_REGENERATION = True
 DRAW_BOARD_BACKGROUND = True
 GENERATE_SNAKES = True
 GENERATE_LADDERS = True
-SHOW_START_END_POINTS = False # This will now hide both snake and ladder points
-SHOW_SNAKE_CONTROL_POINTS = False
-LADDER_ON_TOP = False
+SHOW_START_END_POINTS = False      # Debug: Highlights start/end nodes
+SHOW_SNAKE_CONTROL_POINTS = False  # Debug: Shows Bézier control points
+LADDER_ON_TOP = False              # Render Order: If True, ladders are drawn over snakes
 
-# --- Quadrant Constants for Distribution ---
+# --- Quadrant Constants (For spatial distribution) ---
 TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT = 0, 1, 2, 3
 
+# Cells where items cannot start or end (Start, Winner, etc.)
 FORBIDDEN_CELLS = {1, 2, 3, 99, 100}
 
 
+# Helper Functions
+
 def darken(color, factor=0.7):
+    """Returns a darker version of the given RGB tuple."""
     return tuple(max(0, int(c * factor)) for c in color)
 
-# --- Load Snake Head Images ---
+# Cache for loaded images to prevent reloading from disk every frame
 BASE_HEAD_SIZE = 50
 SNAKE_HEAD_CACHE: dict[str, pygame.Surface] = {}
 
 def load_snake_head(rel_path: str, fallback_color: tuple[int, int, int]) -> pygame.Surface:
+    """
+    Loads a snake head image from disk, resizing it to standard size.
+    Returns a colored square if the image file is missing.
+    """
     if rel_path in SNAKE_HEAD_CACHE:
         return SNAKE_HEAD_CACHE[rel_path]
+    
     abs_path = BASE_DIR / rel_path
     try:
         img = pygame.image.load(abs_path.as_posix())
         if pygame.display.get_surface():
             img = img.convert_alpha()
         head = pygame.transform.smoothscale(img, (BASE_HEAD_SIZE, BASE_HEAD_SIZE))
-    except Exception as exc:  # pragma: no cover - runtime asset issue
+    except Exception as exc:
+        # Log warning but do not crash if asset is missing
         print(f"[snake-head] warning ({abs_path}): {exc}")
         head = pygame.Surface((BASE_HEAD_SIZE, BASE_HEAD_SIZE), pygame.SRCALPHA)
         head.fill(fallback_color)
+    
     SNAKE_HEAD_CACHE[rel_path] = head
     return head
 
 def draw_board(target_surface=None):
+    """
+    Draws the 10x10 grid background with alternating pastel colors and cell numbers.
+    """
     surface = target_surface if target_surface is not None else pygame.Surface((WIDTH, HEIGHT))
     pastel_len = len(PASTEL_COLORS)
+
     def lighten(color, factor=0.2):
         return tuple(int(c + (255 - c) * factor) for c in color)
+
     for row in range(GRID_SIZE):
         for col in range(GRID_SIZE):
             x, y = MARGIN + col * CELL_SIZE, MARGIN + row * CELL_SIZE
+            
+            # Calculate color pattern
             base_color = PASTEL_COLORS[(row * GRID_SIZE + col) % pastel_len]
             color = lighten(base_color)
+            
             pygame.draw.rect(surface, color, (x, y, CELL_SIZE, CELL_SIZE))
+            
+            # Calculate Cell Number (Zig-Zag pattern from bottom-left)
             row_from_bottom = GRID_SIZE - 1 - row
-            cell_num = (row_from_bottom * GRID_SIZE) + (col + 1 if row_from_bottom % 2 == 0 else GRID_SIZE - col)
-            try: font = pygame.font.SysFont("ArcadeClassic", 28)
-            except Exception: font = pygame.font.Font(None, 24)
+            if row_from_bottom % 2 == 0:
+                # Even rows (from bottom): Left to Right
+                cell_num = (row_from_bottom * GRID_SIZE) + (col + 1)
+            else:
+                # Odd rows (from bottom): Right to Left
+                cell_num = (row_from_bottom * GRID_SIZE) + (GRID_SIZE - col)
+            
+            # Render Text
+            try:
+                font = pygame.font.SysFont("ArcadeClassic", 28)
+            except Exception:
+                font = pygame.font.Font(None, 24)
+            
             text = font.render(str(cell_num), True, (80, 80, 80))
             text_rect = text.get_rect(center=(x + CELL_SIZE/2, y + CELL_SIZE/2))
             surface.blit(text, text_rect)
+            
     return surface
 
 def grid_to_pixel(cell_number):
+    """Converts a board cell number (1-100) to pixel coordinates (center of cell)."""
     cell_number -= 1
-    row = GRID_SIZE - 1 - (cell_number // GRID_SIZE)
-    row_from_bottom = GRID_SIZE - 1 - row
-    col = cell_number % GRID_SIZE if row_from_bottom % 2 == 0 else GRID_SIZE - 1 - (cell_number % GRID_SIZE)
+    row_from_bottom = cell_number // GRID_SIZE
+    row = GRID_SIZE - 1 - row_from_bottom
+    
+    # Zig-zag logic
+    if row_from_bottom % 2 == 0:
+        col = cell_number % GRID_SIZE
+    else:
+        col = GRID_SIZE - 1 - (cell_number % GRID_SIZE)
+        
     x = MARGIN + col * CELL_SIZE + CELL_SIZE // 2
     y = MARGIN + row * CELL_SIZE + CELL_SIZE // 2
     return x, y
 
-def draw_solid_ladder(surf, p1, p2, rails_color, rungs_color):
-    (x1, y1), (x2, y2) = p1, p2
-    dx, dy = x2 - x1, y2 - y1
-    dist = math.hypot(dx, dy)
-    if dist < 10: return
-    offset = 12
-    perp = np.array([-dy / dist, dx / dist])
-    p1, p2 = np.array(p1), np.array(p2)
-    rail1_start, rail1_end = p1 + perp * offset, p2 + perp * offset
-    rail2_start, rail2_end = p1 - perp * offset, p2 - perp * offset
-    margin_ratio = 0.1
-    start_t, end_t = margin_ratio, 1 - margin_ratio
-    num_rungs = max(2, int(dist * (end_t - start_t) / 30))
-    for i in range(num_rungs):
-        t = start_t if num_rungs == 1 else start_t + i * (end_t - start_t) / (num_rungs - 1)
-        center_point = p1 + np.array([dx*t, dy*t])
-        rung_start, rung_end = center_point - perp * offset, center_point + perp * offset
-        pygame.draw.line(surf, rungs_color, rung_start, rung_end, LADDER_RUNG_THICKNESS)
-    pygame.draw.line(surf, rails_color, rail1_start, rail1_end, LADDER_RAIL_THICKNESS)
-    pygame.draw.line(surf, rails_color, rail2_start, rail2_end, LADDER_RAIL_THICKNESS)
-
 def cell_to_grid(cell_number):
+    """Returns (row, col) indices for a given cell number, or None if out of bounds."""
     if not 1 <= cell_number <= 100: return None
     cell_idx = cell_number - 1
     row_from_bottom = cell_idx // GRID_SIZE
     row = GRID_SIZE - 1 - row_from_bottom
-    if row_from_bottom % 2 == 0: col = cell_idx % GRID_SIZE
-    else: col = GRID_SIZE - 1 - (cell_idx % GRID_SIZE)
+    
+    if row_from_bottom % 2 == 0: 
+        col = cell_idx % GRID_SIZE
+    else: 
+        col = GRID_SIZE - 1 - (cell_idx % GRID_SIZE)
     return (row, col)
 
 def get_quadrant(cell_number):
+    """Determines which quadrant (0-3) a specific cell belongs to."""
     row, col = cell_to_grid(cell_number)
-    is_top, is_left = row < GRID_SIZE / 2, col < GRID_SIZE / 2
+    is_top = row < GRID_SIZE / 2
+    is_left = col < GRID_SIZE / 2
+    
     if is_top and is_left: return TOP_LEFT
     if is_top and not is_left: return TOP_RIGHT
     if not is_top and is_left: return BOTTOM_LEFT
     return BOTTOM_RIGHT
 
+# Logic: Geometry & Distance Checks
+
 def is_too_close(new_start, new_end, existing_items, radius):
+    """Checks if a new item overlaps or is too close to existing items."""
     new_start_grid, new_end_grid = cell_to_grid(new_start), cell_to_grid(new_end)
+    
     for exist_start, exist_end in existing_items:
         exist_start_grid, exist_end_grid = cell_to_grid(exist_start), cell_to_grid(exist_end)
+        
+        # Check distance between all 4 combinations of endpoints
         points_to_check = [
             (new_start_grid, exist_start_grid), (new_start_grid, exist_end_grid),
             (new_end_grid, exist_start_grid), (new_end_grid, exist_end_grid),
         ]
+        
         for p1, p2 in points_to_check:
             if p1 is None or p2 is None: continue
             (r1, c1), (r2, c2) = p1, p2
-            if max(abs(r1 - r2), abs(c1 - c2)) < radius: return True
+            # Chebyshev distance check (Grid distance)
+            if max(abs(r1 - r2), abs(c1 - c2)) < radius: 
+                return True
     return False
 
+def do_curves_intersect(curve1, curve2, min_distance):
+    """Checks if two Bézier curves come within a minimum pixel distance of each other."""
+    # Optimization: sample every 5th point to reduce calculation time
+    for i in range(0, len(curve1), 5):
+        for j in range(0, len(curve2), 5):
+            p1, p2 = curve1[i], curve2[j]
+            if math.hypot(p1[0] - p2[0], p1[1] - p2[1]) < min_distance:
+                return True
+    return False
+
+# Logic: Generation Algorithms
+
 def generate_items_in_quadrants(num_items, item_type, all_used_points, existing_items_of_same_type, exclusion_radius):
-    items, max_cell = [], GRID_SIZE * GRID_SIZE
+    """
+    Generates items (snakes or ladders) distributed across quadrants to ensure balanced gameplay.
+    """
+    items = []
+    max_cell = GRID_SIZE * GRID_SIZE
     quadrants = [TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT]
+    
+    # Create a target list of quadrants to fill
     targets = (quadrants * (num_items // 4 + 1))[:num_items]
     random.shuffle(targets)
+    
     for target_quadrant in targets:
         attempts = 300
         while attempts > 0:
             attempts -= 1
+            
             if item_type == 'snake':
+                # Snakes: Start high (20+), End low
                 start_range, end_range = (20, max_cell - 1), (2, max_cell - 20)
                 start, end = random.randint(*start_range), random.randint(*end_range)
-                if start <= end: continue
+                if start <= end: continue # Snakes must go down
+                
+                # Check spatial constraints
                 start_grid, end_grid = cell_to_grid(start), cell_to_grid(end)
                 if start_grid and end_grid:
                     (r1, c1), (r2, c2) = start_grid, end_grid
-                    if abs(c1 - c2) > SNAKE_MAX_X_DISTANCE_CELLS:
-                        continue
-                    if max(abs(r1 - r2), abs(c1 - c2)) < EXCLUSION_ZONE_RADIUS:
-                        continue
+                    if abs(c1 - c2) > SNAKE_MAX_X_DISTANCE_CELLS: continue
+                    if max(abs(r1 - r2), abs(c1 - c2)) < EXCLUSION_ZONE_RADIUS: continue
+
             else: # 'ladder'
+                # Ladders: Start low, End high
                 start_range, end_range = (2, max_cell - 20), (20, 90)
                 start, end = random.randint(*start_range), random.randint(*end_range)
-                if start >= end: continue
+                if start >= end: continue # Ladders must go up
+                
+                # Check spatial constraints
                 start_grid, end_grid = cell_to_grid(start), cell_to_grid(end)
                 if start_grid and end_grid:
                     (r1, c1), (r2, c2) = start_grid, end_grid
-                    # --- ส่วนที่แก้ไข: ตรวจสอบระยะห่างแกน X ของบันได ---
+                    # Constraint: Limit horizontal stretch
                     if abs(c1 - c2) > LADDER_MAX_X_DISTANCE_CELLS:
                         continue
                     if max(abs(r1 - r2), abs(c1 - c2)) < EXCLUSION_ZONE_RADIUS:
                         continue
+
             length = abs(start - end)
             if not (MIN_ITEM_LENGTH_CELLS <= length <= MAX_ITEM_LENGTH_CELLS): continue
+            
+            # Ensure start matches target quadrant to spread them out
             if get_quadrant(start) != target_quadrant: continue
+            
+            # Global overlap checks
             if start in all_used_points or end in all_used_points or start in FORBIDDEN_CELLS or end in FORBIDDEN_CELLS: continue
             if is_too_close(start, end, existing_items_of_same_type, exclusion_radius): continue
-            items.append((start, end)); existing_items_of_same_type.append((start, end))
-            all_used_points.add(start); all_used_points.add(end)
+            
+            # Success
+            items.append((start, end))
+            existing_items_of_same_type.append((start, end))
+            all_used_points.add(start)
+            all_used_points.add(end)
             break
+            
     return items
 
 def generate_random_positions(num_snakes, num_ladders, exclusion_radius):
+    """
+    Main coordinator for generating board logic.
+    Guarantees specific difficultly features (e.g., top-row snakes).
+    """
     all_used_points = set()
     snakes = []
     ladders = []
     existing_items_of_same_type = []
 
-    # Generate snakes
+    # --- 1. Generate Critical Snakes (Top Row) ---
     if num_snakes > 0:
-        # Generate 2 snakes in the top row
         top_row_snakes_to_generate = 2
         attempts = 300
         while len(snakes) < min(top_row_snakes_to_generate, num_snakes) and attempts > 0:
             attempts -= 1
-            start = random.randint(91, 100)
+            start = random.randint(91, 100) # Top row
             end = random.randint(2, 80)
 
             if start <= end: continue
@@ -231,10 +315,8 @@ def generate_random_positions(num_snakes, num_ladders, exclusion_radius):
             start_grid, end_grid = cell_to_grid(start), cell_to_grid(end)
             if start_grid and end_grid:
                 (r1, c1), (r2, c2) = start_grid, end_grid
-                if abs(c1 - c2) > SNAKE_MAX_X_DISTANCE_CELLS:
-                    continue
-                if max(abs(r1 - r2), abs(c1 - c2)) < EXCLUSION_ZONE_RADIUS:
-                    continue
+                if abs(c1 - c2) > SNAKE_MAX_X_DISTANCE_CELLS: continue
+                if max(abs(r1 - r2), abs(c1 - c2)) < EXCLUSION_ZONE_RADIUS: continue
             
             length = abs(start - end)
             if not (MIN_ITEM_LENGTH_CELLS <= length <= MAX_ITEM_LENGTH_CELLS): continue
@@ -247,26 +329,26 @@ def generate_random_positions(num_snakes, num_ladders, exclusion_radius):
         
         existing_items_of_same_type.extend(snakes)
 
-        # Generate remaining snakes
+        # --- 2. Generate Remaining Snakes ---
         remaining_snakes = num_snakes - len(snakes)
         if remaining_snakes > 0:
             snakes.extend(generate_items_in_quadrants(remaining_snakes, 'snake', all_used_points, existing_items_of_same_type, exclusion_radius))
 
-    # Generate at least one ladder in the first row
+    # --- 3. Generate Critical Ladder (Early Game) ---
     if num_ladders > 0:
         attempts = 300
         first_ladder_generated = False
         while attempts > 0 and not first_ladder_generated:
             attempts -= 1
-            start = random.randint(4, 10)
+            start = random.randint(4, 10) # Very early start
             end = random.randint(20, 40)
             
             if start >= end: continue
             
-            # --- ส่วนที่แก้ไข: ตรวจสอบระยะห่างแกน X ของบันไดตัวแรก ---
             start_grid, end_grid = cell_to_grid(start), cell_to_grid(end)
             if start_grid and end_grid:
                 (r1, c1), (r2, c2) = start_grid, end_grid
+                # Constraint: Check horizontal stretch for the first ladder
                 if abs(c1 - c2) > LADDER_MAX_X_DISTANCE_CELLS:
                     continue
             else:
@@ -282,19 +364,26 @@ def generate_random_positions(num_snakes, num_ladders, exclusion_radius):
             all_used_points.add(end)
             first_ladder_generated = True
 
-    # Generate remaining ladders
+    # --- 4. Generate Remaining Ladders ---
     remaining_ladders = num_ladders - len(ladders)
     if remaining_ladders > 0:
         ladders.extend(generate_items_in_quadrants(remaining_ladders, 'ladder', all_used_points, ladders, exclusion_radius))
     
     return snakes, ladders
 
+# Logic: Curve & Visual Generation
+
 def generate_snake_points(start_pos, end_pos):
+    """Generates random control points for a snake's body between start and end."""
     points = [start_pos]
+    
+    # Create a primary midpoint with some jitter
     mid_x = (start_pos[0] + end_pos[0]) / 2 + random.randint(-CELL_SIZE, CELL_SIZE)
     mid_y = (start_pos[1] + end_pos[1]) / 2 + random.randint(-CELL_SIZE, CELL_SIZE)
     mid_x, mid_y = max(MARGIN, min(WIDTH - MARGIN, mid_x)), max(MARGIN, min(HEIGHT - MARGIN, mid_y))
     points.extend([(mid_x, mid_y), end_pos])
+    
+    # Add intermediate points to create the "wiggle"
     while (len(points) - 1) % 3 != 0:
         t = random.random()
         x = start_pos[0] + (end_pos[0] - start_pos[0]) * t + random.randint(-CELL_SIZE//2, CELL_SIZE//2)
@@ -303,6 +392,7 @@ def generate_snake_points(start_pos, end_pos):
     return points
 
 def cubic_bezier(points, samples=60):
+    """Calculates points along a Cubic Bézier curve based on control points."""
     if len(points) < 4: return points
     curve = []
     for i in range(0, len(points) - 3, 3):
@@ -314,66 +404,115 @@ def cubic_bezier(points, samples=60):
     return curve if curve else points
 
 def generate_pattern_positions(curve):
+    """Determines where patterns (stripes/dots) should appear along the snake body."""
     positions = []
+    # Calculate approximate curve length
     total_length = sum(math.hypot(curve[i+1][0] - curve[i][0], curve[i+1][1] - curve[i][1]) for i in range(len(curve) - 1))
+    
     current_distance = 40 + random.randint(-10, 10)
     while current_distance < total_length - 40:
         positions.append(current_distance)
         current_distance += 25 + random.randint(-5, 10)
     return positions
 
-def do_curves_intersect(curve1, curve2, min_distance):
-    for i in range(0, len(curve1), 5):
-        for j in range(0, len(curve2), 5):
-            p1, p2 = curve1[i], curve2[j]
-            if math.hypot(p1[0] - p2[0], p1[1] - p2[1]) < min_distance:
-                return True
-    return False
+def draw_solid_ladder(surf, p1, p2, rails_color, rungs_color):
+    """Draws a ladder with side rails and rungs."""
+    (x1, y1), (x2, y2) = p1, p2
+    dx, dy = x2 - x1, y2 - y1
+    dist = math.hypot(dx, dy)
+    if dist < 10: return
+    
+    offset = 12 # Half-width of the ladder
+    # Calculate perpendicular vector for rail offset
+    perp = np.array([-dy / dist, dx / dist])
+    
+    p1_arr, p2_arr = np.array(p1), np.array(p2)
+    
+    # Rail coordinates
+    rail1_start, rail1_end = p1_arr + perp * offset, p2_arr + perp * offset
+    rail2_start, rail2_end = p1_arr - perp * offset, p2_arr - perp * offset
+    
+    # Rung generation
+    margin_ratio = 0.1
+    start_t, end_t = margin_ratio, 1 - margin_ratio
+    num_rungs = max(2, int(dist * (end_t - start_t) / 30))
+    
+    for i in range(num_rungs):
+        t = start_t if num_rungs == 1 else start_t + i * (end_t - start_t) / (num_rungs - 1)
+        center_point = p1_arr + np.array([dx*t, dy*t])
+        rung_start, rung_end = center_point - perp * offset, center_point + perp * offset
+        pygame.draw.line(surf, rungs_color, rung_start, rung_end, LADDER_RUNG_THICKNESS)
+        
+    pygame.draw.line(surf, rails_color, rail1_start, rail1_end, LADDER_RAIL_THICKNESS)
+    pygame.draw.line(surf, rails_color, rail2_start, rail2_end, LADDER_RAIL_THICKNESS)
 
 def draw_snake(surf, curve, colors, head_img, pattern_positions):
+    """Renders the snake body with tapering width, patterns, and the head image."""
     if len(curve) < 2: return
 
     color, pattern_color = colors
+    n = len(curve)
+    taper_start_point = 0.8 # Point (0.0-1.0) where the tail starts getting thinner
     
-    n, taper_start_point = len(curve), 0.8 
+    # 1. Draw the main body
     for i in range(n - 1):
         progress = i / (n - 1)
+        # Taper logic: Calculate thickness based on progress
         taper_factor = max(0, (progress - taper_start_point) / (1.0 - taper_start_point)) ** 1.5 if progress > taper_start_point else 0.0
-        outline_w, inner_w = int(SNAKE_MAX_OUTLINE - (SNAKE_MAX_OUTLINE - SNAKE_MIN_OUTLINE) * taper_factor), int(SNAKE_MAX_INNER - (SNAKE_MAX_INNER - SNAKE_MIN_INNER) * taper_factor)
+        
+        outline_w = int(SNAKE_MAX_OUTLINE - (SNAKE_MAX_OUTLINE - SNAKE_MIN_OUTLINE) * taper_factor)
+        inner_w = int(SNAKE_MAX_INNER - (SNAKE_MAX_INNER - SNAKE_MIN_INNER) * taper_factor)
+        
         p0, p1 = curve[i], curve[i + 1]
-        pygame.draw.line(surf, darken(color, 0.6), p0, p1, max(1, outline_w))
-        pygame.draw.line(surf, color, p0, p1, max(1, inner_w))
+        pygame.draw.line(surf, darken(color, 0.6), p0, p1, max(1, outline_w)) # Outline
+        pygame.draw.line(surf, color, p0, p1, max(1, inner_w)) # Inner body
+
+    # 2. Draw the patterns (Stripes/Diamonds)
     distance_traveled, pattern_idx = 0.0, 0
     for i in range(n - 1):
         p0, p1 = curve[i], curve[i + 1]
         segment_length = math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+        
         while pattern_idx < len(pattern_positions) and distance_traveled < pattern_positions[pattern_idx] < distance_traveled + segment_length:
             ratio = (pattern_positions[pattern_idx] - distance_traveled) / segment_length
             pos_x, pos_y = p0[0] + (p1[0] - p0[0]) * ratio, p0[1] + (p1[1] - p0[1]) * ratio
+            
+            # Recalculate thickness at this specific point for pattern sizing
             progress = i / (n - 1)
             taper_factor = max(0, (progress - taper_start_point) / (1.0 - taper_start_point)) ** 1.5 if progress > taper_start_point else 0.0
             current_inner_w = int(SNAKE_MAX_INNER - (SNAKE_MAX_INNER - SNAKE_MIN_INNER) * taper_factor)
+            
             dx, dy = p1[0] - p0[0], p1[1] - p0[1]
             mag = segment_length if segment_length > 0 else 1
             dir_vec, perp_vec = np.array([dx / mag, dy / mag]), np.array([-dy / mag, dx / mag])
+            
             center = np.array((pos_x, pos_y))
             half_w, half_h = (current_inner_w / 2) * SNAKE_PATTERN_SIZE_MULTIPLIER, SNAKE_STRIPE_HEIGHT / 2
-            pt1, pt2 = center - (dir_vec * half_h) + (perp_vec * half_w), center + (dir_vec * half_h) + (perp_vec * half_w)
-            pt3, pt4 = center + (dir_vec * half_h) - (perp_vec * half_w), center - (dir_vec * half_h) - (perp_vec * half_w)
+            
+            # Calculate 4 corners of the pattern polygon
+            pt1 = center - (dir_vec * half_h) + (perp_vec * half_w)
+            pt2 = center + (dir_vec * half_h) + (perp_vec * half_w)
+            pt3 = center + (dir_vec * half_h) - (perp_vec * half_w)
+            pt4 = center - (dir_vec * half_h) - (perp_vec * half_w)
+            
             outline_color = darken(color, 0.5)
             pygame.draw.polygon(surf, pattern_color, [pt1, pt2, pt3, pt4])
             pygame.draw.polygon(surf, outline_color, [pt1, pt2, pt3, pt4], 2)
             pattern_idx += 1
+            
         distance_traveled += segment_length
+
+    # 3. Draw the Head
     head_pos, next_pos = curve[0], curve[1]
     dx, dy = next_pos[0] - head_pos[0], next_pos[1] - head_pos[1]
-    angle = np.degrees(np.arctan2(-dy, dx)) - 90
+    angle = np.degrees(np.arctan2(-dy, dx)) - 90 # Adjust rotation
     rotated_head = pygame.transform.rotate(head_img, angle)
     rect = rotated_head.get_rect(center=head_pos)
     surf.blit(rotated_head, rect)
 
 
 def generate_board_state():
+    """Generates all logic data for a new board (Snake positions, Ladder positions, etc.)."""
     num_snakes_to_generate = np.random.randint(MIN_SNAKES_TO_GENERATE, MAX_SNAKES_TO_GENERATE + 1) if GENERATE_SNAKES else 0
     num_ladders = np.random.randint(MIN_LADDERS_TO_GENERATE, MAX_LADDERS_TO_GENERATE + 1) if GENERATE_LADDERS else 0
 
@@ -383,11 +522,13 @@ def generate_board_state():
 
     num_snakes = len(snake_positions)
 
+    # Assign visual definitions (colors/heads) to snakes
     snake_defs = []
     if num_snakes > 0:
         guaranteed_defs = list(SNAKE_DEFINITIONS)
         random.shuffle(guaranteed_defs)
-
+        
+        # Ensure variety before repeating
         snake_defs.extend(guaranteed_defs[:min(num_snakes, len(guaranteed_defs))])
 
         remaining_slots = num_snakes - len(snake_defs)
@@ -397,24 +538,31 @@ def generate_board_state():
 
     random.shuffle(snake_defs)
 
+    # Generate curves for the snakes
     snake_curves, snake_patterns, snake_control_points = [], [], []
     for start_cell, end_cell in snake_positions:
         start_pos, end_pos = grid_to_pixel(start_cell), grid_to_pixel(end_cell)
         final_curve = None
         points = []
+        
+        # Attempt to generate a curve that doesn't overlap existing snakes
         for _ in range(MAX_CURVE_GENERATION_ATTEMPTS):
             is_valid_curve = True
             points = generate_snake_points(start_pos, end_pos)
             new_curve = cubic_bezier(points)
+            
             for existing_curve in snake_curves:
                 if do_curves_intersect(new_curve, existing_curve, SNAKE_MIN_BODY_DISTANCE):
                     is_valid_curve = False
                     break
+            
             if is_valid_curve:
                 final_curve = new_curve
                 break
+        
         if final_curve is None:
-            final_curve = new_curve
+            final_curve = new_curve # Fallback if no valid curve found
+            
         if final_curve:
             snake_curves.append(final_curve)
             snake_patterns.append(generate_pattern_positions(final_curve))
@@ -424,19 +572,23 @@ def generate_board_state():
 
 
 def _render_ladders(target_surface, ladder_pos):
+    """Internal helper to draw all ladders."""
     rails_color = (139, 90, 43)  # Lighter brown for rails
     rungs_color = (218, 125, 24)  # Original orange for rungs
+    
     for (start, end) in ladder_pos:
         p1, p2 = grid_to_pixel(start), grid_to_pixel(end)
         draw_solid_ladder(target_surface, p1, p2, rails_color, rungs_color)
+        
         if SHOW_START_END_POINTS:
             pygame.draw.circle(target_surface, (255, 255, 255), p1, 8)
-            pygame.draw.circle(target_surface, (0, 200, 0), p1, 6)
+            pygame.draw.circle(target_surface, (0, 200, 0), p1, 6) # Green for Start
             pygame.draw.circle(target_surface, (255, 255, 255), p2, 8)
-            pygame.draw.circle(target_surface, (0, 100, 255), p2, 6)
+            pygame.draw.circle(target_surface, (0, 100, 255), p2, 6) # Blue for End
 
 
 def _render_snakes(target_surface, snake_defs, snake_curves, snake_patterns, snake_control_points):
+    """Internal helper to draw all snakes."""
     for i, (snake_def, curve, pattern) in enumerate(zip(snake_defs, snake_curves, snake_patterns)):
         head_img = load_snake_head(snake_def["head_path"], snake_def["colors"][0])
         draw_snake(target_surface, curve, snake_def["colors"], head_img, pattern)
@@ -451,7 +603,7 @@ def _render_snakes(target_surface, snake_defs, snake_curves, snake_patterns, sna
         if SHOW_START_END_POINTS:
             end_pos = curve[-1]
             pygame.draw.circle(target_surface, (255, 255, 255), end_pos, 8)
-            pygame.draw.circle(target_surface, (255, 200, 0), end_pos, 6)
+            pygame.draw.circle(target_surface, (255, 200, 0), end_pos, 6) # Yellow for Tail/End
 
 
 def render_board_surface(
@@ -467,7 +619,11 @@ def render_board_surface(
     background_color=None,
     target_surface=None,
 ):
+    """
+    Compiles the background, ladders, and snakes onto a single Pygame surface.
+    """
     surface = target_surface or pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    
     if background_color is not None:
         surface.fill(background_color)
     elif target_surface is None:
@@ -487,7 +643,12 @@ def render_board_surface(
 
 
 def generate_space_board_assets():
+    """
+    External API hook: Generates board logic and returns the rendered image surface
+    plus mapping data (useful if importing this module into another game file).
+    """
     snake_pos, ladder_pos, snake_defs, snake_curves, snake_patterns, snake_control_points = generate_board_state()
+    
     board_surface = render_board_surface(
         snake_pos,
         ladder_pos,
@@ -503,6 +664,7 @@ def generate_space_board_assets():
     snakes_map = {start: end for start, end in snake_pos}
     ladders_map = {start: end for start, end in ladder_pos}
     grid_map = {cell: grid_to_pixel(cell) for cell in range(1, GRID_SIZE * GRID_SIZE + 1)}
+    
     return board_surface, snakes_map, ladders_map, grid_map
 
 def main():

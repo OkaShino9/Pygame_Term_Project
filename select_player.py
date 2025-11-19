@@ -261,7 +261,7 @@ def run_player_select(screen):
             # If an avatar is selected, display its player order (P1, P2, etc.).
             if i in selected_order:
                 rank = selected_order.index(i) + 1
-                label = font.render(f"P{rank}", True, (255,255,200))
+                label = font.render(f"P{rank}", True, (255,255,255))
                 screen.blit(label, label.get_rect(midbottom=(t.rect.centerx, t.rect.top - 6)))
 
         pygame.display.flip()
