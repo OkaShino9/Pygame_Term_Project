@@ -7,7 +7,7 @@ from pathlib import Path
 
 pygame.init()
 
-# --- Board and Grid Setup ---
+# --- Setup ---
 CELL_SIZE = 60
 GRID_SIZE = 10
 MARGIN = 50
@@ -15,10 +15,9 @@ WIDTH = CELL_SIZE * GRID_SIZE + MARGIN * 2
 HEIGHT = CELL_SIZE * GRID_SIZE + MARGIN * 2
 BASE_DIR = Path(__file__).resolve().parent
 
-# --- Colors & Visual Patterns ---
+# --- Colors & Pattern ---
 PASTEL_COLORS = [
-    (255, 182, 193), (173, 216, 230), (255, 255, 153),
-    (152, 251, 152), (221, 160, 221), (255, 204, 153)
+    (253, 231, 189), (240, 186, 77), (141, 178, 170), (187, 148, 181)
 ]
 SNAKE_DEFINITIONS = [
     {"colors": ((132, 0, 190), (155, 27, 235)), "head_path": "assets/snake/snake_head_484px_purple.png"},
@@ -36,41 +35,43 @@ SNAKE_MIN_INNER = 6
 LADDER_RAIL_THICKNESS = 6
 LADDER_RUNG_THICKNESS = 4
 
-# --- Generation Balance & Distribution Controls ---
-EXCLUSION_ZONE_RADIUS = 2  # Minimum distance (in cells) between start/end points of items.
-SNAKE_MIN_BODY_DISTANCE = 30 # Minimum pixel distance between two snake bodies.
-MAX_CURVE_GENERATION_ATTEMPTS = 10 # How many times to try generating a non-intersecting snake curve.
-MIN_SNAKES_TO_GENERATE = 8
+# --- Balance & Distribution Controls ---
+EXCLUSION_ZONE_RADIUS = 2
+SNAKE_MIN_BODY_DISTANCE = 30
+MAX_CURVE_GENERATION_ATTEMPTS = 10
+MIN_SNAKES_TO_GENERATE = 8         
 MAX_SNAKES_TO_GENERATE = 10
 MIN_LADDERS_TO_GENERATE = 8
 MAX_LADDERS_TO_GENERATE = 10
-MAX_ITEM_LENGTH_CELLS = 20 # Max length of a snake or ladder in terms of cell numbers.
-MIN_ITEM_LENGTH_CELLS = 10 # Min length.
-SNAKE_MAX_X_DISTANCE_CELLS = 5 # Max horizontal distance for a snake.
-LADDER_MAX_X_DISTANCE_CELLS = 5 # Max horizontal distance for a ladder.
+MAX_ITEM_LENGTH_CELLS = 20
+MIN_ITEM_LENGTH_CELLS = 10
+SNAKE_MAX_X_DISTANCE_CELLS = 5
+LADDER_MAX_X_DISTANCE_CELLS = 5 # --- ส่วนที่เพิ่ม: ค่าจำกัดระยะห่างแกน X ของบันได ---
 
-# --- Debugging & Feature Switches ---
-GENERATE_BOARD_ON_STARTUP = True # Generate a new board when the script is run directly.
-ENABLE_SPACEBAR_REGENERATION = True # Allow regenerating the board with the spacebar.
-DRAW_BOARD_BACKGROUND = True # Draw the numbered grid background.
-SHOW_START_END_POINTS = False # If True, visualizes the start/end points of snakes and ladders.
-LADDER_ON_TOP = False # If True, ladders will be rendered on top of snakes.
+# --- On/Off Switches ---
+GENERATE_BOARD_ON_STARTUP = True
+ENABLE_SPACEBAR_REGENERATION = True
+DRAW_BOARD_BACKGROUND = True
+GENERATE_SNAKES = True
+GENERATE_LADDERS = True
+SHOW_START_END_POINTS = False # This will now hide both snake and ladder points
+SHOW_SNAKE_CONTROL_POINTS = False
+LADDER_ON_TOP = False
 
-# --- Quadrant Constants for Distribution Logic ---
+# --- Quadrant Constants for Distribution ---
 TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT = 0, 1, 2, 3
-FORBIDDEN_CELLS = {1, 2, 3, 99, 100} # Cells where snakes/ladders cannot start or end.
+
+FORBIDDEN_CELLS = {1, 2, 3, 99, 100}
 
 
 def darken(color, factor=0.7):
-    """Darkens a given color by a factor."""
     return tuple(max(0, int(c * factor)) for c in color)
 
-# --- Asset Loading ---
+# --- Load Snake Head Images ---
 BASE_HEAD_SIZE = 50
 SNAKE_HEAD_CACHE: dict[str, pygame.Surface] = {}
 
 def load_snake_head(rel_path: str, fallback_color: tuple[int, int, int]) -> pygame.Surface:
-    """Loads a snake head image, resizes it, and caches it for future use."""
     if rel_path in SNAKE_HEAD_CACHE:
         return SNAKE_HEAD_CACHE[rel_path]
     abs_path = BASE_DIR / rel_path
@@ -79,28 +80,24 @@ def load_snake_head(rel_path: str, fallback_color: tuple[int, int, int]) -> pyga
         if pygame.display.get_surface():
             img = img.convert_alpha()
         head = pygame.transform.smoothscale(img, (BASE_HEAD_SIZE, BASE_HEAD_SIZE))
-    except Exception as exc:
+    except Exception as exc:  # pragma: no cover - runtime asset issue
         print(f"[snake-head] warning ({abs_path}): {exc}")
         head = pygame.Surface((BASE_HEAD_SIZE, BASE_HEAD_SIZE), pygame.SRCALPHA)
         head.fill(fallback_color)
     SNAKE_HEAD_CACHE[rel_path] = head
     return head
 
-# --- Drawing Functions ---
-
 def draw_board(target_surface=None):
-    """Draws the numbered grid background."""
     surface = target_surface if target_surface is not None else pygame.Surface((WIDTH, HEIGHT))
     pastel_len = len(PASTEL_COLORS)
-    def lighten(color, factor=0.6):
+    def lighten(color, factor=0.2):
         return tuple(int(c + (255 - c) * factor) for c in color)
     for row in range(GRID_SIZE):
         for col in range(GRID_SIZE):
             x, y = MARGIN + col * CELL_SIZE, MARGIN + row * CELL_SIZE
             base_color = PASTEL_COLORS[(row * GRID_SIZE + col) % pastel_len]
-            color = lighten(base_color, 0.6)
+            color = lighten(base_color)
             pygame.draw.rect(surface, color, (x, y, CELL_SIZE, CELL_SIZE))
-            # Calculate cell number based on serpentine layout
             row_from_bottom = GRID_SIZE - 1 - row
             cell_num = (row_from_bottom * GRID_SIZE) + (col + 1 if row_from_bottom % 2 == 0 else GRID_SIZE - col)
             try: font = pygame.font.SysFont("ArcadeClassic", 28)
@@ -111,32 +108,24 @@ def draw_board(target_surface=None):
     return surface
 
 def grid_to_pixel(cell_number):
-    """Converts a cell number (1-100) to its center pixel coordinate."""
     cell_number -= 1
     row = GRID_SIZE - 1 - (cell_number // GRID_SIZE)
     row_from_bottom = GRID_SIZE - 1 - row
-    # Determine column based on whether the row is even or odd (serpentine path)
     col = cell_number % GRID_SIZE if row_from_bottom % 2 == 0 else GRID_SIZE - 1 - (cell_number % GRID_SIZE)
     x = MARGIN + col * CELL_SIZE + CELL_SIZE // 2
     y = MARGIN + row * CELL_SIZE + CELL_SIZE // 2
     return x, y
 
 def draw_solid_ladder(surf, p1, p2, rails_color, rungs_color):
-    """Draws a ladder between two points."""
     (x1, y1), (x2, y2) = p1, p2
     dx, dy = x2 - x1, y2 - y1
     dist = math.hypot(dx, dy)
     if dist < 10: return
-
-    offset = 12 # Half the width of the ladder
-    perp = np.array([-dy / dist, dx / dist]) # Perpendicular vector for rails
+    offset = 12
+    perp = np.array([-dy / dist, dx / dist])
     p1, p2 = np.array(p1), np.array(p2)
-
-    # Calculate rail positions
     rail1_start, rail1_end = p1 + perp * offset, p2 + perp * offset
     rail2_start, rail2_end = p1 - perp * offset, p2 - perp * offset
-
-    # Draw rungs
     margin_ratio = 0.1
     start_t, end_t = margin_ratio, 1 - margin_ratio
     num_rungs = max(2, int(dist * (end_t - start_t) / 30))
@@ -145,15 +134,10 @@ def draw_solid_ladder(surf, p1, p2, rails_color, rungs_color):
         center_point = p1 + np.array([dx*t, dy*t])
         rung_start, rung_end = center_point - perp * offset, center_point + perp * offset
         pygame.draw.line(surf, rungs_color, rung_start, rung_end, LADDER_RUNG_THICKNESS)
-
-    # Draw rails
     pygame.draw.line(surf, rails_color, rail1_start, rail1_end, LADDER_RAIL_THICKNESS)
     pygame.draw.line(surf, rails_color, rail2_start, rail2_end, LADDER_RAIL_THICKNESS)
 
-# --- Positional & Distribution Logic ---
-
 def cell_to_grid(cell_number):
-    """Converts a cell number (1-100) to its (row, col) grid coordinate."""
     if not 1 <= cell_number <= 100: return None
     cell_idx = cell_number - 1
     row_from_bottom = cell_idx // GRID_SIZE
@@ -163,7 +147,6 @@ def cell_to_grid(cell_number):
     return (row, col)
 
 def get_quadrant(cell_number):
-    """Determines which quadrant a cell number belongs to."""
     row, col = cell_to_grid(cell_number)
     is_top, is_left = row < GRID_SIZE / 2, col < GRID_SIZE / 2
     if is_top and is_left: return TOP_LEFT
@@ -172,7 +155,6 @@ def get_quadrant(cell_number):
     return BOTTOM_RIGHT
 
 def is_too_close(new_start, new_end, existing_items, radius):
-    """Checks if a new item is too close to any existing items."""
     new_start_grid, new_end_grid = cell_to_grid(new_start), cell_to_grid(new_end)
     for exist_start, exist_end in existing_items:
         exist_start_grid, exist_end_grid = cell_to_grid(exist_start), cell_to_grid(exist_end)
@@ -187,7 +169,6 @@ def is_too_close(new_start, new_end, existing_items, radius):
     return False
 
 def generate_items_in_quadrants(num_items, item_type, all_used_points, existing_items_of_same_type, exclusion_radius):
-    """Generates a specified number of items (snakes/ladders) distributed across quadrants."""
     items, max_cell = [], GRID_SIZE * GRID_SIZE
     quadrants = [TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT]
     targets = (quadrants * (num_items // 4 + 1))[:num_items]
@@ -196,7 +177,6 @@ def generate_items_in_quadrants(num_items, item_type, all_used_points, existing_
         attempts = 300
         while attempts > 0:
             attempts -= 1
-            # Generate start/end based on item type (snakes go down, ladders go up)
             if item_type == 'snake':
                 start_range, end_range = (20, max_cell - 1), (2, max_cell - 20)
                 start, end = random.randint(*start_range), random.randint(*end_range)
@@ -204,8 +184,10 @@ def generate_items_in_quadrants(num_items, item_type, all_used_points, existing_
                 start_grid, end_grid = cell_to_grid(start), cell_to_grid(end)
                 if start_grid and end_grid:
                     (r1, c1), (r2, c2) = start_grid, end_grid
-                    if abs(c1 - c2) > SNAKE_MAX_X_DISTANCE_CELLS: continue
-                    if max(abs(r1 - r2), abs(c1 - c2)) < EXCLUSION_ZONE_RADIUS: continue
+                    if abs(c1 - c2) > SNAKE_MAX_X_DISTANCE_CELLS:
+                        continue
+                    if max(abs(r1 - r2), abs(c1 - c2)) < EXCLUSION_ZONE_RADIUS:
+                        continue
             else: # 'ladder'
                 start_range, end_range = (2, max_cell - 20), (20, 90)
                 start, end = random.randint(*start_range), random.randint(*end_range)
@@ -213,54 +195,64 @@ def generate_items_in_quadrants(num_items, item_type, all_used_points, existing_
                 start_grid, end_grid = cell_to_grid(start), cell_to_grid(end)
                 if start_grid and end_grid:
                     (r1, c1), (r2, c2) = start_grid, end_grid
-                    if abs(c1 - c2) > LADDER_MAX_X_DISTANCE_CELLS: continue
-                    if max(abs(r1 - r2), abs(c1 - c2)) < EXCLUSION_ZONE_RADIUS: continue
-
-            # Validate the generated item
+                    # --- ส่วนที่แก้ไข: ตรวจสอบระยะห่างแกน X ของบันได ---
+                    if abs(c1 - c2) > LADDER_MAX_X_DISTANCE_CELLS:
+                        continue
+                    if max(abs(r1 - r2), abs(c1 - c2)) < EXCLUSION_ZONE_RADIUS:
+                        continue
             length = abs(start - end)
             if not (MIN_ITEM_LENGTH_CELLS <= length <= MAX_ITEM_LENGTH_CELLS): continue
             if get_quadrant(start) != target_quadrant: continue
             if start in all_used_points or end in all_used_points or start in FORBIDDEN_CELLS or end in FORBIDDEN_CELLS: continue
             if is_too_close(start, end, existing_items_of_same_type, exclusion_radius): continue
-
             items.append((start, end)); existing_items_of_same_type.append((start, end))
             all_used_points.add(start); all_used_points.add(end)
             break
     return items
 
 def generate_random_positions(num_snakes, num_ladders, exclusion_radius):
-    """Generates balanced positions for snakes and ladders."""
     all_used_points = set()
-    snakes, ladders = [], []
+    snakes = []
+    ladders = []
     existing_items_of_same_type = []
 
-    # --- Snake Generation ---
-    # Rule: Generate 2 snakes starting in the top row (91-100) for difficulty.
-    top_row_snakes_to_generate = 2
-    attempts = 300
-    while len(snakes) < top_row_snakes_to_generate and attempts > 0:
-        attempts -= 1
-        start = random.randint(91, 100)
-        end = random.randint(2, 80)
-        if start <= end: continue
-        start_grid, end_grid = cell_to_grid(start), cell_to_grid(end)
-        if start_grid and end_grid:
-            (r1, c1), (r2, c2) = start_grid, end_grid
-            if abs(c1 - c2) > SNAKE_MAX_X_DISTANCE_CELLS: continue
-            if max(abs(r1 - r2), abs(c1 - c2)) < EXCLUSION_ZONE_RADIUS: continue
-        length = abs(start - end)
-        if not (MIN_ITEM_LENGTH_CELLS <= length <= MAX_ITEM_LENGTH_CELLS): continue
-        if start in all_used_points or end in all_used_points or start in FORBIDDEN_CELLS or end in FORBIDDEN_CELLS: continue
-        if is_too_close(start, end, snakes, exclusion_radius): continue
-        snakes.append((start, end))
-        all_used_points.add(start); all_used_points.add(end)
-    
-    existing_items_of_same_type.extend(snakes)
-    remaining_snakes = num_snakes - len(snakes)
-    snakes.extend(generate_items_in_quadrants(remaining_snakes, 'snake', all_used_points, existing_items_of_same_type, exclusion_radius))
+    # Generate snakes
+    if num_snakes > 0:
+        # Generate 2 snakes in the top row
+        top_row_snakes_to_generate = 2
+        attempts = 300
+        while len(snakes) < min(top_row_snakes_to_generate, num_snakes) and attempts > 0:
+            attempts -= 1
+            start = random.randint(91, 100)
+            end = random.randint(2, 80)
 
-    # --- Ladder Generation ---
-    # Rule: Generate at least one ladder in the first row (1-10) for an early boost.
+            if start <= end: continue
+
+            start_grid, end_grid = cell_to_grid(start), cell_to_grid(end)
+            if start_grid and end_grid:
+                (r1, c1), (r2, c2) = start_grid, end_grid
+                if abs(c1 - c2) > SNAKE_MAX_X_DISTANCE_CELLS:
+                    continue
+                if max(abs(r1 - r2), abs(c1 - c2)) < EXCLUSION_ZONE_RADIUS:
+                    continue
+            
+            length = abs(start - end)
+            if not (MIN_ITEM_LENGTH_CELLS <= length <= MAX_ITEM_LENGTH_CELLS): continue
+            if start in all_used_points or end in all_used_points or start in FORBIDDEN_CELLS or end in FORBIDDEN_CELLS: continue
+            if is_too_close(start, end, snakes, exclusion_radius): continue
+
+            snakes.append((start, end))
+            all_used_points.add(start)
+            all_used_points.add(end)
+        
+        existing_items_of_same_type.extend(snakes)
+
+        # Generate remaining snakes
+        remaining_snakes = num_snakes - len(snakes)
+        if remaining_snakes > 0:
+            snakes.extend(generate_items_in_quadrants(remaining_snakes, 'snake', all_used_points, existing_items_of_same_type, exclusion_radius))
+
+    # Generate at least one ladder in the first row
     if num_ladders > 0:
         attempts = 300
         first_ladder_generated = False
@@ -268,37 +260,41 @@ def generate_random_positions(num_snakes, num_ladders, exclusion_radius):
             attempts -= 1
             start = random.randint(4, 10)
             end = random.randint(20, 40)
+            
             if start >= end: continue
+            
+            # --- ส่วนที่แก้ไข: ตรวจสอบระยะห่างแกน X ของบันไดตัวแรก ---
             start_grid, end_grid = cell_to_grid(start), cell_to_grid(end)
             if start_grid and end_grid:
                 (r1, c1), (r2, c2) = start_grid, end_grid
-                if abs(c1 - c2) > LADDER_MAX_X_DISTANCE_CELLS: continue
-            else: continue
+                if abs(c1 - c2) > LADDER_MAX_X_DISTANCE_CELLS:
+                    continue
+            else:
+                continue
+
             length = abs(start - end)
             if not (MIN_ITEM_LENGTH_CELLS <= length <= MAX_ITEM_LENGTH_CELLS): continue
             if start in all_used_points or end in all_used_points or start in FORBIDDEN_CELLS or end in FORBIDDEN_CELLS: continue
             if is_too_close(start, end, ladders, exclusion_radius): continue
+
             ladders.append((start, end))
-            all_used_points.add(start); all_used_points.add(end)
+            all_used_points.add(start)
+            all_used_points.add(end)
             first_ladder_generated = True
 
+    # Generate remaining ladders
     remaining_ladders = num_ladders - len(ladders)
     if remaining_ladders > 0:
         ladders.extend(generate_items_in_quadrants(remaining_ladders, 'ladder', all_used_points, ladders, exclusion_radius))
     
     return snakes, ladders
 
-# --- Snake Curve Generation & Drawing ---
-
 def generate_snake_points(start_pos, end_pos):
-    """Generates control points for a cubic Bézier curve representing a snake."""
     points = [start_pos]
     mid_x = (start_pos[0] + end_pos[0]) / 2 + random.randint(-CELL_SIZE, CELL_SIZE)
     mid_y = (start_pos[1] + end_pos[1]) / 2 + random.randint(-CELL_SIZE, CELL_SIZE)
-    mid_x = max(MARGIN, min(WIDTH - MARGIN, mid_x))
-    mid_y = max(MARGIN, min(HEIGHT - MARGIN, mid_y))
+    mid_x, mid_y = max(MARGIN, min(WIDTH - MARGIN, mid_x)), max(MARGIN, min(HEIGHT - MARGIN, mid_y))
     points.extend([(mid_x, mid_y), end_pos])
-    # Ensure the number of points is suitable for cubic Bézier segments (multiple of 3 + 1)
     while (len(points) - 1) % 3 != 0:
         t = random.random()
         x = start_pos[0] + (end_pos[0] - start_pos[0]) * t + random.randint(-CELL_SIZE//2, CELL_SIZE//2)
@@ -307,7 +303,6 @@ def generate_snake_points(start_pos, end_pos):
     return points
 
 def cubic_bezier(points, samples=60):
-    """Calculates points along a cubic Bézier curve."""
     if len(points) < 4: return points
     curve = []
     for i in range(0, len(points) - 3, 3):
@@ -319,7 +314,6 @@ def cubic_bezier(points, samples=60):
     return curve if curve else points
 
 def generate_pattern_positions(curve):
-    """Generates positions for snake patterns along the curve's length."""
     positions = []
     total_length = sum(math.hypot(curve[i+1][0] - curve[i][0], curve[i+1][1] - curve[i][1]) for i in range(len(curve) - 1))
     current_distance = 40 + random.randint(-10, 10)
@@ -329,8 +323,7 @@ def generate_pattern_positions(curve):
     return positions
 
 def do_curves_intersect(curve1, curve2, min_distance):
-    """Checks if two snake curves intersect by sampling points."""
-    for i in range(0, len(curve1), 5): # Sample every 5 points for efficiency
+    for i in range(0, len(curve1), 5):
         for j in range(0, len(curve2), 5):
             p1, p2 = curve1[i], curve2[j]
             if math.hypot(p1[0] - p2[0], p1[1] - p2[1]) < min_distance:
@@ -338,24 +331,18 @@ def do_curves_intersect(curve1, curve2, min_distance):
     return False
 
 def draw_snake(surf, curve, colors, head_img, pattern_positions):
-    """Draws a complete snake, including its body, patterns, and head."""
     if len(curve) < 2: return
 
     color, pattern_color = colors
     
-    # Draw the snake body with a tapering effect towards the tail.
     n, taper_start_point = len(curve), 0.8 
     for i in range(n - 1):
         progress = i / (n - 1)
-        # Tapering factor increases towards the end of the curve (the tail).
         taper_factor = max(0, (progress - taper_start_point) / (1.0 - taper_start_point)) ** 1.5 if progress > taper_start_point else 0.0
-        outline_w = int(SNAKE_MAX_OUTLINE - (SNAKE_MAX_OUTLINE - SNAKE_MIN_OUTLINE) * taper_factor)
-        inner_w = int(SNAKE_MAX_INNER - (SNAKE_MAX_INNER - SNAKE_MIN_INNER) * taper_factor)
+        outline_w, inner_w = int(SNAKE_MAX_OUTLINE - (SNAKE_MAX_OUTLINE - SNAKE_MIN_OUTLINE) * taper_factor), int(SNAKE_MAX_INNER - (SNAKE_MAX_INNER - SNAKE_MIN_INNER) * taper_factor)
         p0, p1 = curve[i], curve[i + 1]
         pygame.draw.line(surf, darken(color, 0.6), p0, p1, max(1, outline_w))
         pygame.draw.line(surf, color, p0, p1, max(1, inner_w))
-
-    # Draw the patterns on the snake's body.
     distance_traveled, pattern_idx = 0.0, 0
     for i in range(n - 1):
         p0, p1 = curve[i], curve[i + 1]
@@ -363,13 +350,9 @@ def draw_snake(surf, curve, colors, head_img, pattern_positions):
         while pattern_idx < len(pattern_positions) and distance_traveled < pattern_positions[pattern_idx] < distance_traveled + segment_length:
             ratio = (pattern_positions[pattern_idx] - distance_traveled) / segment_length
             pos_x, pos_y = p0[0] + (p1[0] - p0[0]) * ratio, p0[1] + (p1[1] - p0[1]) * ratio
-            
-            # Calculate pattern size based on tapering
             progress = i / (n - 1)
             taper_factor = max(0, (progress - taper_start_point) / (1.0 - taper_start_point)) ** 1.5 if progress > taper_start_point else 0.0
             current_inner_w = int(SNAKE_MAX_INNER - (SNAKE_MAX_INNER - SNAKE_MIN_INNER) * taper_factor)
-            
-            # Orient the pattern (stripe) perpendicular to the snake's body
             dx, dy = p1[0] - p0[0], p1[1] - p0[1]
             mag = segment_length if segment_length > 0 else 1
             dir_vec, perp_vec = np.array([dx / mag, dy / mag]), np.array([-dy / mag, dx / mag])
@@ -377,14 +360,11 @@ def draw_snake(surf, curve, colors, head_img, pattern_positions):
             half_w, half_h = (current_inner_w / 2) * SNAKE_PATTERN_SIZE_MULTIPLIER, SNAKE_STRIPE_HEIGHT / 2
             pt1, pt2 = center - (dir_vec * half_h) + (perp_vec * half_w), center + (dir_vec * half_h) + (perp_vec * half_w)
             pt3, pt4 = center + (dir_vec * half_h) - (perp_vec * half_w), center - (dir_vec * half_h) - (perp_vec * half_w)
-            
             outline_color = darken(color, 0.5)
             pygame.draw.polygon(surf, pattern_color, [pt1, pt2, pt3, pt4])
             pygame.draw.polygon(surf, outline_color, [pt1, pt2, pt3, pt4], 2)
             pattern_idx += 1
         distance_traveled += segment_length
-
-    # Draw the snake head, rotated to face along the curve.
     head_pos, next_pos = curve[0], curve[1]
     dx, dy = next_pos[0] - head_pos[0], next_pos[1] - head_pos[1]
     angle = np.degrees(np.arctan2(-dy, dx)) - 90
@@ -392,29 +372,36 @@ def draw_snake(surf, curve, colors, head_img, pattern_positions):
     rect = rotated_head.get_rect(center=head_pos)
     surf.blit(rotated_head, rect)
 
-# --- Main Generation & Rendering Orchestration ---
 
 def generate_board_state():
-    """Generates the complete state for a new board, including positions and visual properties."""
-    num_snakes_to_generate = np.random.randint(MIN_SNAKES_TO_GENERATE, MAX_SNAKES_TO_GENERATE + 1)
-    num_ladders = np.random.randint(MIN_LADDERS_TO_GENERATE, MAX_LADDERS_TO_GENERATE + 1)
+    num_snakes_to_generate = np.random.randint(MIN_SNAKES_TO_GENERATE, MAX_SNAKES_TO_GENERATE + 1) if GENERATE_SNAKES else 0
+    num_ladders = np.random.randint(MIN_LADDERS_TO_GENERATE, MAX_LADDERS_TO_GENERATE + 1) if GENERATE_LADDERS else 0
 
     snake_positions, ladder_positions = generate_random_positions(
         num_snakes_to_generate, num_ladders, EXCLUSION_ZONE_RADIUS
     )
 
-    # Assign colors and definitions
     num_snakes = len(snake_positions)
-    ladder_colors = [random.choice(PASTEL_COLORS) for _ in ladder_positions]
-    snake_defs = random.choices(SNAKE_DEFINITIONS, k=num_snakes)
+
+    snake_defs = []
+    if num_snakes > 0:
+        guaranteed_defs = list(SNAKE_DEFINITIONS)
+        random.shuffle(guaranteed_defs)
+
+        snake_defs.extend(guaranteed_defs[:min(num_snakes, len(guaranteed_defs))])
+
+        remaining_slots = num_snakes - len(snake_defs)
+        if remaining_slots > 0:
+            for _ in range(remaining_slots):
+                snake_defs.append(random.choice(SNAKE_DEFINITIONS))
+
     random.shuffle(snake_defs)
 
-    # Generate snake curve paths and patterns
-    snake_curves, snake_patterns = [], []
+    snake_curves, snake_patterns, snake_control_points = [], [], []
     for start_cell, end_cell in snake_positions:
         start_pos, end_pos = grid_to_pixel(start_cell), grid_to_pixel(end_cell)
         final_curve = None
-        # Attempt to generate a non-intersecting curve
+        points = []
         for _ in range(MAX_CURVE_GENERATION_ATTEMPTS):
             is_valid_curve = True
             points = generate_snake_points(start_pos, end_pos)
@@ -426,73 +413,88 @@ def generate_board_state():
             if is_valid_curve:
                 final_curve = new_curve
                 break
-        if final_curve is None: # Fallback to the last generated curve if all attempts failed
+        if final_curve is None:
             final_curve = new_curve
         if final_curve:
             snake_curves.append(final_curve)
             snake_patterns.append(generate_pattern_positions(final_curve))
+            snake_control_points.append(points)
 
-    return snake_positions, ladder_positions, snake_defs, ladder_colors, snake_curves, snake_patterns
+    return snake_positions, ladder_positions, snake_defs, snake_curves, snake_patterns, snake_control_points
 
 
-def _render_ladders(target_surface, ladder_pos, ladder_colors):
-    """Helper to render all ladders."""
-    for (start, end), color in zip(ladder_pos, ladder_colors):
+def _render_ladders(target_surface, ladder_pos):
+    rails_color = (139, 90, 43)  # Lighter brown for rails
+    rungs_color = (218, 125, 24)  # Original orange for rungs
+    for (start, end) in ladder_pos:
         p1, p2 = grid_to_pixel(start), grid_to_pixel(end)
-        draw_solid_ladder(target_surface, p1, p2, darken(color, 0.8), color)
+        draw_solid_ladder(target_surface, p1, p2, rails_color, rungs_color)
         if SHOW_START_END_POINTS:
-            pygame.draw.circle(target_surface, (255, 255, 255), p1, 8); pygame.draw.circle(target_surface, (0, 200, 0), p1, 6)
-            pygame.draw.circle(target_surface, (255, 255, 255), p2, 8); pygame.draw.circle(target_surface, (0, 100, 255), p2, 6)
+            pygame.draw.circle(target_surface, (255, 255, 255), p1, 8)
+            pygame.draw.circle(target_surface, (0, 200, 0), p1, 6)
+            pygame.draw.circle(target_surface, (255, 255, 255), p2, 8)
+            pygame.draw.circle(target_surface, (0, 100, 255), p2, 6)
 
 
-def _render_snakes(target_surface, snake_defs, snake_curves, snake_patterns):
-    """Helper to render all snakes."""
-    for snake_def, curve, pattern in zip(snake_defs, snake_curves, snake_patterns):
+def _render_snakes(target_surface, snake_defs, snake_curves, snake_patterns, snake_control_points):
+    for i, (snake_def, curve, pattern) in enumerate(zip(snake_defs, snake_curves, snake_patterns)):
         head_img = load_snake_head(snake_def["head_path"], snake_def["colors"][0])
         draw_snake(target_surface, curve, snake_def["colors"], head_img, pattern)
+
+        if SHOW_SNAKE_CONTROL_POINTS and i < len(snake_control_points):
+            control_points = snake_control_points[i]
+            for point in control_points:
+                pygame.draw.circle(target_surface, (255, 0, 0), point, 5)
+            if len(control_points) > 1:
+                pygame.draw.lines(target_surface, (255, 0, 255), False, control_points, 1)
+
         if SHOW_START_END_POINTS:
             end_pos = curve[-1]
-            pygame.draw.circle(target_surface, (255, 255, 255), end_pos, 8); pygame.draw.circle(target_surface, (255, 200, 0), end_pos, 6)
+            pygame.draw.circle(target_surface, (255, 255, 255), end_pos, 8)
+            pygame.draw.circle(target_surface, (255, 200, 0), end_pos, 6)
 
 
 def render_board_surface(
-    snake_pos, ladder_pos, snake_defs, ladder_colors, snake_curves, snake_patterns,
-    *, draw_background=True, ladder_on_top=False, background_color=None, target_surface=None
+    snake_pos,
+    ladder_pos,
+    snake_defs,
+    snake_curves,
+    snake_patterns,
+    snake_control_points,
+    *,
+    draw_background=True,
+    ladder_on_top=False,
+    background_color=None,
+    target_surface=None,
 ):
-    """Renders the entire board surface from its constituent parts."""
     surface = target_surface or pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-    if background_color: surface.fill(background_color)
-    elif target_surface is None: surface.fill((0, 0, 0, 0))
+    if background_color is not None:
+        surface.fill(background_color)
+    elif target_surface is None:
+        surface.fill((0, 0, 0, 0))
 
-    if draw_background: draw_board(surface)
+    if draw_background:
+        draw_board(surface)
 
-    # Control rendering order of snakes and ladders
     if ladder_on_top:
-        _render_snakes(surface, snake_defs, snake_curves, snake_patterns)
-        _render_ladders(surface, ladder_pos, ladder_colors)
+        _render_snakes(surface, snake_defs, snake_curves, snake_patterns, snake_control_points)
+        _render_ladders(surface, ladder_pos)
     else:
-        _render_ladders(surface, ladder_pos, ladder_colors)
-        _render_snakes(surface, snake_defs, snake_curves, snake_patterns)
+        _render_ladders(surface, ladder_pos)
+        _render_snakes(surface, snake_defs, snake_curves, snake_patterns, snake_control_points)
 
     return surface
 
 
 def generate_space_board_assets():
-    """
-    This is the main entry point for the game to get a procedurally generated board.
-    It generates the board state and renders it to a surface.
-    
-    Returns:
-        - board_surface (pygame.Surface): The rendered game board.
-        - snakes_map (dict): A mapping of snake start cells to end cells.
-        - ladders_map (dict): A mapping of ladder start cells to end cells.
-        - grid_map (dict): A mapping of all cell numbers to their pixel coordinates.
-    """
-    state = generate_board_state()
-    snake_pos, ladder_pos, _, _, _, _ = state
-    
+    snake_pos, ladder_pos, snake_defs, snake_curves, snake_patterns, snake_control_points = generate_board_state()
     board_surface = render_board_surface(
-        *state,
+        snake_pos,
+        ladder_pos,
+        snake_defs,
+        snake_curves,
+        snake_patterns,
+        snake_control_points,
         draw_background=True,
         ladder_on_top=LADDER_ON_TOP,
         background_color=None,
@@ -504,26 +506,32 @@ def generate_space_board_assets():
     return board_surface, snakes_map, ladders_map, grid_map
 
 def main():
-    """Main function to run the generator as a standalone script for debugging."""
     pygame.display.set_caption("Snake & Ladder Board Generator")
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     clock = pygame.time.Clock()
     running = True
 
-    state = generate_board_state() if GENERATE_BOARD_ON_STARTUP else ([], [], [], [], [], [])
+    if GENERATE_BOARD_ON_STARTUP:
+        state = generate_board_state()
+    else:
+        state = ([], [], [], [], [], [])
 
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE and ENABLE_SPACEBAR_REGENERATION:
+            elif (
+                event.type == pygame.KEYDOWN
+                and event.key == pygame.K_SPACE
+                and ENABLE_SPACEBAR_REGENERATION
+            ):
                 state = generate_board_state()
 
         render_board_surface(
             *state,
             draw_background=DRAW_BOARD_BACKGROUND,
             ladder_on_top=LADDER_ON_TOP,
-            background_color=(200, 200, 200),
+            background_color=(0, 0, 0),
             target_surface=screen,
         )
         pygame.display.flip()
