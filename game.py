@@ -1,6 +1,6 @@
 import pygame, sys, random, time, math
 from transitions import curtain_transition
-from board_generator import generate_space_board_assets
+from board_generator import BoardGenerator
 
 # --- CONFIG ---
 SCREEN_WIDTH, SCREEN_HEIGHT = 1280, 720
@@ -112,20 +112,22 @@ class SnakeLaddersGame:
 
         self.board_size = SPACE_BOARD_SIZE
         try:
-            board_surface, snakes_map, ladders_map, grid_map = generate_space_board_assets()
+            generator = BoardGenerator()
+            board_surface, snakes, ladders, grid_map = generator.generate_space_board_assets()
             src_size = board_surface.get_size()
             self.board = pygame.transform.smoothscale(board_surface, self.board_size)
-            if snakes_map:
-                self.snakes = snakes_map
-            if ladders_map:
-                self.ladders = ladders_map
+            if snakes:
+                self.snakes = {s.start_cell: s.end_cell for s in snakes}
+            if ladders:
+                self.ladders = {l.start_cell: l.end_cell for l in ladders}
             if grid_map:
                 self.tiles = self._tiles_from_generator(grid_map, src_size)
             else:
                 self.tiles = self.generate_tiles(10, 10, BOARD_POS, self.board_size)
             for player in self.players:
                 player.rect.center = self.tiles[player.pos]
-        except Exception:
+        except Exception as e:
+            print(f"Failed to generate space board: {e}")
             # fall back to default board if generation fails
             self.board_size = CLASSIC_BOARD_SIZE
             self.board = load_image("assets/board/Board_with_number.png", self.board_size)
